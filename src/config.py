@@ -3,6 +3,7 @@ import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 from datetime import time
+from pydantic import validator
 
 
 class OkxSettings(BaseModel):
@@ -24,6 +25,13 @@ class DCASettings(BaseModel):
     amount_usd: float
     time_utc: time
     max_transaction_limit: float
+    period: str = "1_day"  # "1_day" or "1_minute"
+
+    @validator("period")
+    def validate_period(cls, v):
+        if v not in ["1_day", "1_minute"]:
+            raise ValueError('period must be either "1_day" or "1_minute"')
+        return v
 
 
 class DatabaseSettings(BaseModel):
@@ -65,6 +73,7 @@ def get_settings() -> AppSettings:
             amount_usd=float(get_env("DCA_AMOUNT_USD")),
             time_utc=parse_time(get_env("DCA_TIME_UTC")),
             max_transaction_limit=float(get_env("MAX_TRANSACTION_LIMIT")),
+            period=get_env("DCA_PERIOD", "1_day"),
         ),
         db=DatabaseSettings(
             uri=get_env("MONGODB_URI"),

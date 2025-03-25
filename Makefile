@@ -1,4 +1,4 @@
-.PHONY: build start stop logs restart status clean run-local init-env dry-run test help
+.PHONY: build up stop logs restart status clean run-local init-env dry-run test help up_and_logs
 
 # Default variables
 ENV_FILE ?= .env
@@ -7,8 +7,11 @@ ENV_FILE ?= .env
 build:
 	docker-compose build
 
-start:
-	docker-compose up -d
+up:
+	docker-compose up -d --build
+
+up_and_logs:
+	docker-compose up --build
 
 stop:
 	docker-compose down
@@ -16,7 +19,7 @@ stop:
 logs:
 	docker-compose logs -f
 
-restart: stop start
+restart: stop up
 
 status:
 	docker-compose ps
@@ -43,12 +46,13 @@ dry-run:
 # Test command
 test: check-env
 	@echo "Running production tests..."
-	docker-compose run --rm app python -m pytest -xvs --log-cli-level=INFO tests/test_prod.py
+	docker-compose run --rm --build app python -m pytest -xvs --log-cli-level=INFO tests/test_prod.py
 
 help:
 	@echo "Available commands:"
 	@echo "  make build      - Build Docker image"
-	@echo "  make start      - Start container in detached mode"
+	@echo "  make up         - Start container in detached mode"
+	@echo "  make up_and_logs - Start container and show logs"
 	@echo "  make stop       - Stop container"
 	@echo "  make logs       - View container logs"
 	@echo "  make restart    - Restart container"

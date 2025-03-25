@@ -38,8 +38,18 @@ def setup_logging() -> None:
 def handle_exit(signum, frame) -> None:
     """Handle exit signals."""
     logging.info("Shutdown signal received, stopping application...")
-    dca_scheduler.stop()
+    # We can't directly await in a signal handler, so we need to use a different approach
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        loop.create_task(shutdown_gracefully())
     sys.exit(0)
+
+
+async def shutdown_gracefully() -> None:
+    """Gracefully shutdown the application."""
+    await dca_scheduler.stop()
+    await telegram_bot.application.stop()
+    logging.info("Application shut down gracefully")
 
 
 async def run_app() -> None:
@@ -53,6 +63,7 @@ async def run_app() -> None:
     try:
         # Log configuration
         logging.info(f"DCA amount: ${settings.dca.amount_usd}")
+        logging.info(f"DCA period: {settings.dca.period}")
         logging.info(f"DCA time: {settings.dca.time_utc.strftime('%H:%M')} UTC")
         logging.info(f"Dry run mode: {settings.dry_run}")
 
@@ -73,7 +84,7 @@ async def run_app() -> None:
 
         # Start scheduler
         run_immediately = os.environ.get("RUN_IMMEDIATELY", "false").lower() == "true"
-        dca_scheduler.start(run_immediately=run_immediately)
+        await dca_scheduler.start(run_immediately=run_immediately)
 
         # Start Telegram bot
         await telegram_bot.application.initialize()
@@ -88,7 +99,7 @@ async def run_app() -> None:
 
     except Exception as e:
         logging.error(f"Error running application: {str(e)}")
-        dca_scheduler.stop()
+        await dca_scheduler.stop()
         await telegram_bot.application.stop()
         sys.exit(1)
 
