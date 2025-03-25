@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  dca-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dca-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - dca-network
+
+networks:
+  dca-network:
+    driver: bridge
