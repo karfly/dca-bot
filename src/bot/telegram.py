@@ -46,12 +46,7 @@ class TelegramBot:
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
-        await update.message.reply_text(
-            "Welcome to the Bitcoin DCA Bot! I'll help you track your Bitcoin DCA strategy.",
-            parse_mode=ParseMode.HTML
-        )
-
-        # Send stats
+        # Just send stats without welcome message
         await self.send_stats(update)
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -81,7 +76,7 @@ class TelegramBot:
         # For now, just respond with help
         await update.message.reply_text(
             "Available commands:\n"
-            "/start - Start the bot and see stats\n"
+            "/start - Show your DCA statistics\n"
             "/stats - Show your DCA statistics\n"
             "/balance - Show your account balance"
         )
@@ -96,7 +91,11 @@ class TelegramBot:
         current_price = okx.get_current_price()
         usdt_balance, days_left = okx.calculate_days_left()
 
-        message = format_stats_message(stats, current_price, usdt_balance, days_left)
+        # Calculate time until next trade from the scheduler
+        from src.scheduler import dca_scheduler
+        next_trade_time = dca_scheduler.get_time_until_next_trade()
+
+        message = format_stats_message(stats, current_price, usdt_balance, days_left, next_trade_time)
 
         await update.message.reply_text(
             message,
@@ -109,8 +108,12 @@ class TelegramBot:
         current_price = okx.get_current_price()
         usdt_balance, days_left = okx.calculate_days_left()
 
+        # Calculate time until next trade from the scheduler
+        from src.scheduler import dca_scheduler
+        next_trade_time = dca_scheduler.get_time_until_next_trade()
+
         message = format_trade_notification(
-            trade, stats, current_price, usdt_balance, days_left
+            trade, stats, current_price, usdt_balance, days_left, next_trade_time
         )
 
         await self.application.bot.send_message(

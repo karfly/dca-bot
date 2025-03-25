@@ -11,6 +11,7 @@ A Docker-based Bitcoin Dollar Cost Averaging (DCA) bot that automatically purcha
 - **Security Features**: Transaction limits, OKX subaccount isolation, dry-run mode
 - **Docker Support**: Easy deployment and management
 - **Detailed Stats**: View your DCA performance statistics
+- **Portfolio Tracking**: Track existing BTC holdings alongside DCA purchases
 
 ## Requirements
 
@@ -114,6 +115,8 @@ For enhanced security, create a dedicated subaccount for the DCA bot:
 | `DCA_PERIOD` | DCA execution period | `1_day` or `1_minute` |
 | `DCA_TIME_UTC` | Time to execute DCA (UTC) | `18:00` |
 | `MAX_TRANSACTION_LIMIT` | Maximum allowed transaction | `1000.0` |
+| `PORTFOLIO_INITIAL_BTC` | Initial BTC holdings | `0.5` |
+| `PORTFOLIO_INITIAL_AVG_PRICE` | Average price of initial BTC | `40000.0` |
 | `MONGODB_URI` | MongoDB connection string | `mongodb+srv://...` |
 | `DRY_RUN` | Test mode without real trades | `true` or `false` |
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
@@ -140,6 +143,7 @@ make logs            # View container logs
 make restart         # Restart the container
 make status          # Check container status
 make clean           # Stop and remove container
+make clear-db        # Clear the database by dropping trades collection
 make run-local       # Run application locally
 make init-env        # Create .env file from example
 make dry-run         # Run in dry-run mode

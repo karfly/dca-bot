@@ -1,7 +1,6 @@
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from datetime import datetime, timedelta
 import locale
-from decimal import Decimal, ROUND_DOWN
 
 # Set locale for currency formatting
 locale.setlocale(locale.LC_ALL, '')
@@ -27,7 +26,8 @@ def format_trade_notification(
     stats: Dict[str, Any],
     current_price: float,
     usdt_balance: float,
-    days_left: int
+    days_left: int,
+    next_trade_time: Tuple[int, int]
 ) -> str:
     """
     Format trade notification message in HTML.
@@ -38,6 +38,7 @@ def format_trade_notification(
         current_price: Current BTC price
         usdt_balance: USDT balance
         days_left: Days left based on balance
+        next_trade_time: Tuple of (hours, minutes) until next trade
 
     Returns:
         str: Formatted HTML message
@@ -52,6 +53,10 @@ def format_trade_notification(
 
     # Estimate end date
     end_date = datetime.now() + timedelta(days=days_left)
+
+    # Get time until next trade
+    hours, minutes = next_trade_time
+    next_trade_info = f"• Next Trade: <code>in {hours} hours {minutes} minutes</code>"
 
     # Include portfolio information
     portfolio_info = ""
@@ -80,6 +85,9 @@ def format_trade_notification(
 <b>Performance:</b>
 • PnL: <code>${format_money(pnl, 2)}</code> ({format_percentage(pnl_percent)})
 
+<b>Schedule:</b>
+{next_trade_info}
+
 <b>Balance:</b>
 • USDT Remaining: <code>${format_money(usdt_balance, 2)}</code>
 • Days Left: <code>{days_left}</code>
@@ -92,7 +100,8 @@ def format_stats_message(
     stats: Dict[str, Any],
     current_price: float,
     usdt_balance: float,
-    days_left: int
+    days_left: int,
+    next_trade_time: Tuple[int, int]
 ) -> str:
     """
     Format statistics message in HTML.
@@ -102,12 +111,18 @@ def format_stats_message(
         current_price: Current BTC price
         usdt_balance: USDT balance
         days_left: Days left based on balance
+        next_trade_time: Tuple of (hours, minutes) until next trade
 
     Returns:
         str: Formatted HTML message
     """
     if stats["num_trades"] == 0 and stats["initial_portfolio"]["btc_amount"] <= 0:
-        return "<b>No trades yet.</b> Start your DCA journey!"
+        # Even for empty stats, show next trade time
+        hours, minutes = next_trade_time
+        return f"""<b>No trades yet.</b> Start your DCA journey!
+
+<b>Schedule:</b>
+• Next Trade: <code>in {hours} hours {minutes} minutes</code>"""
 
     # Calculate PnL
     pnl = (current_price - stats["mean_price"]) * stats["total_btc"]
@@ -115,6 +130,10 @@ def format_stats_message(
 
     # Estimate end date
     end_date = datetime.now() + timedelta(days=days_left)
+
+    # Get time until next trade
+    hours, minutes = next_trade_time
+    next_trade_info = f"• Next Trade: <code>in {hours} hours {minutes} minutes</code>"
 
     # Calculate days since first trade
     days_since_start = 0
@@ -132,7 +151,7 @@ def format_stats_message(
 
     if initial_portfolio["btc_amount"] > 0:
         initial_pnl = (current_price - initial_portfolio["avg_price"]) * initial_portfolio["btc_amount"]
-        initial_pnl_percent = (current_price / initial_portfolio["avg_price"] - 1) * 100
+        initial_pnl_percent = (current_price / initial_portfolio["avg_price"] - 1) * 100 if initial_portfolio["avg_price"] > 0 else 0
 
         initial_portfolio_section = f"""
 <b>Initial Portfolio:</b>
@@ -181,6 +200,9 @@ def format_stats_message(
 • Current Value: <code>${format_money(stats['total_btc'] * current_price, 2)}</code>
 • Total PnL: <code>${format_money(pnl, 2)}</code> ({format_percentage(pnl_percent)})
 {initial_portfolio_section}{dca_section}{trading_activity}
+<b>Schedule:</b>
+{next_trade_info}
+
 <b>Balance:</b>
 • USDT Remaining: <code>${format_money(usdt_balance, 2)}</code>
 • Days Left: <code>{days_left}</code>

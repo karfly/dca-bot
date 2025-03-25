@@ -164,6 +164,40 @@ Please deposit more funds to continue your DCA strategy.
             await self.task
         logger.info("DCA Scheduler stopped")
 
+    def get_time_until_next_trade(self) -> tuple:
+        """
+        Calculate the time until the next scheduled trade.
+
+        Returns:
+            tuple: (hours, minutes) until the next trade
+        """
+        if self.dca_period == "1_minute":
+            return (0, 1)  # Always 1 minute for minute-based DCA
+
+        next_run = schedule.next_run()
+        if next_run:
+            time_diff = next_run - datetime.now()
+            hours, remainder = divmod(time_diff.seconds, 3600)
+            minutes, _ = divmod(remainder, 60)
+            return (hours, minutes)
+
+        # If no scheduled run (unlikely), calculate manually for daily DCA
+        now = datetime.now()
+        target_time = datetime(
+            now.year, now.month, now.day,
+            self.dca_time.hour, self.dca_time.minute
+        )
+
+        # If target time is already past for today, add one day
+        if target_time < now:
+            target_time += timedelta(days=1)
+
+        time_diff = target_time - now
+        hours, remainder = divmod(time_diff.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        return (hours, minutes)
+
 
 # Create singleton instance
 dca_scheduler = DCAScheduler()
