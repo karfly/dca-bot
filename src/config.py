@@ -1,5 +1,5 @@
 from pydantic import Field, BaseModel
-
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 from datetime import time
@@ -38,11 +38,14 @@ class AppSettings(BaseSettings):
     dca: DCASettings
     db: DatabaseSettings
     dry_run: bool = False
+    log_level: str = "INFO"
+    run_immediately: bool = False
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         env_nested_delimiter = "__"
+        extra = "allow"
 
 
 def get_settings() -> AppSettings:
@@ -67,12 +70,13 @@ def get_settings() -> AppSettings:
             uri=get_env("MONGODB_URI"),
         ),
         dry_run=get_env("DRY_RUN", "false").lower() == "true",
+        log_level=get_env("LOG_LEVEL", "INFO"),
+        run_immediately=get_env("RUN_IMMEDIATELY", "false").lower() == "true",
     )
 
 
 def get_env(name: str, default: Optional[str] = None) -> str:
     """Get environment variable or raise an error."""
-    import os
     value = os.environ.get(name, default)
     if value is None:
         raise ValueError(f"Environment variable {name} not set")

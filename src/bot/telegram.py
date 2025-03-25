@@ -22,11 +22,10 @@ class TelegramBot:
 
     def __init__(self, token: str, allowed_user_id: int):
         """Initialize Telegram bot."""
-        # Configure application with chat_id_filter to restrict access
+        # Configure application
         self.application = (
             Application.builder()
             .token(token)
-            .chat_id_filter([allowed_user_id])  # Only allow the specified user ID
             .build()
         )
         self.allowed_user_id = allowed_user_id
@@ -35,10 +34,14 @@ class TelegramBot:
 
     def _setup_handlers(self) -> None:
         """Set up command handlers."""
-        self.application.add_handler(CommandHandler("start", self.start_command))
-        self.application.add_handler(CommandHandler("stats", self.stats_command))
-        self.application.add_handler(CommandHandler("balance", self.balance_command))
-        self.application.add_handler(MessageHandler(filters.TEXT, self.text_message_handler))
+        # Create a filter to only allow messages from the allowed user ID
+        allowed_user_filter = filters.User(user_id=self.allowed_user_id)
+
+        # Add handlers with the filter
+        self.application.add_handler(CommandHandler("start", self.start_command, filters=allowed_user_filter))
+        self.application.add_handler(CommandHandler("stats", self.stats_command, filters=allowed_user_filter))
+        self.application.add_handler(CommandHandler("balance", self.balance_command, filters=allowed_user_filter))
+        self.application.add_handler(MessageHandler(filters.TEXT & allowed_user_filter, self.text_message_handler))
         self.application.add_error_handler(self.error_handler)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

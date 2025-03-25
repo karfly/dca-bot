@@ -1,4 +1,4 @@
-.PHONY: build start stop logs restart status clean
+.PHONY: build start stop logs restart status clean run-local init-env dry-run test help
 
 # Default variables
 ENV_FILE ?= .env
@@ -40,6 +40,11 @@ init-env:
 dry-run:
 	DRY_RUN=true python -m src.main
 
+# Test command
+test: check-env
+	@echo "Running production tests..."
+	docker-compose run --rm app python -m pytest -xvs tests/test_prod.py
+
 help:
 	@echo "Available commands:"
 	@echo "  make build      - Build Docker image"
@@ -52,4 +57,5 @@ help:
 	@echo "  make run-local  - Run application locally"
 	@echo "  make init-env   - Create .env file from .env.example"
 	@echo "  make dry-run    - Run application in dry run mode (no actual trades)"
+	@echo "  make test       - Run production tests in Docker container"
 	@echo "  make help       - Show this help message"

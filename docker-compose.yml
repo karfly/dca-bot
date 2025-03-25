@@ -1,16 +1,15 @@
-version: '3.8'
-
 services:
-  dca-bot:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: dca-bot
     restart: unless-stopped
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     volumes:
       - ./logs:/app/logs
+      - ./:/app
     networks:
       - dca-network
 

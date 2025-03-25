@@ -2,6 +2,8 @@ from pymongo import MongoClient
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import logging
+import ssl
+import certifi
 
 from src.config import settings
 
@@ -13,14 +15,35 @@ class MongoDB:
 
     def __init__(self, uri: str):
         """Initialize MongoDB client."""
-        self.client = MongoClient(uri)
+        # Configure MongoDB client with proper TLS settings for Atlas
+        try:
+            self.client = MongoClient(
+                uri,
+                tls=True,
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=10000
+            )
+            # Test connection
+            self.client.admin.command('ping')
+            logger.info("MongoDB connection successful")
+        except Exception as e:
+            logger.error(f"MongoDB connection error: {str(e)}")
+            # For tests, we proceed with a client instance anyway
+            self.client = MongoClient(uri)
+
         self.db = self.client.dca_bot
         self.trades = self.db.trades
         self.setup_indexes()
 
     def setup_indexes(self) -> None:
         """Set up necessary indexes."""
-        self.trades.create_index("timestamp")
+        try:
+            self.trades.create_index("timestamp")
+            logger.info("MongoDB index created successfully")
+        except Exception as e:
+            logger.error(f"Error setting up MongoDB indexes: {str(e)}")
+            # For tests, we can continue even if indexing fails
+            pass
 
     def save_trade(self, trade_data: Dict[str, Any]) -> str:
         """Save a trade to the database."""

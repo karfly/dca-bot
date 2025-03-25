@@ -57,6 +57,7 @@ class OKXExchange:
         # Validate amount
         validate_transaction_amount(usd_amount, settings.dca.max_transaction_limit)
 
+        # Get current price and calculate BTC amount
         ticker = self.get_ticker()
         current_price = ticker['last']
         btc_amount = usd_amount / current_price
@@ -64,7 +65,7 @@ class OKXExchange:
         # Format BTC amount according to OKX precision (typically 8 decimal places)
         btc_amount = round(btc_amount, 8)
 
-        logger.info(f"Placing order: {btc_amount} BTC at ~{current_price} USDT")
+        logger.info(f"Placing market buy order for {usd_amount} USDT (approximately {btc_amount} BTC at {current_price} USDT/BTC)")
 
         if self.dry_run:
             logger.info("DRY RUN: Order not actually placed")
@@ -77,28 +78,53 @@ class OKXExchange:
             }
 
         try:
-            order = self.exchange.create_market_buy_order(self.symbol, btc_amount)
-            logger.info(f"Order placed successfully: {order['id']}")
+            # Create market buy order with calculated BTC amount
+            order = self.exchange.create_market_order(
+                symbol=self.symbol,
+                side='buy',
+                amount=btc_amount,  # Amount in base currency (BTC)
+                params={'tdMode': 'cash'}  # Spot trading
+            )
 
-            # Get actual executed amounts from the order
-            filled_btc = float(order['filled'])
-            cost = float(order['cost'])
-            actual_price = cost / filled_btc if filled_btc > 0 else current_price
+            logger.info(f"Raw order response: {order}")
+
+            # Wait for order to be filled and fetch its details
+            time.sleep(2)  # Give some time for the order to be processed
+            order_details = self.exchange.fetch_order(order['id'], self.symbol)
+
+            if not order_details:
+                raise ccxt.ExchangeError(f"Could not fetch order details for order ID: {order['id']}")
+
+            # Get actual executed amounts from the order details
+            filled_btc = float(order_details['filled'])
+            cost = float(order_details['cost'])
+            actual_price = float(order_details['price'])
+
+            if not filled_btc or not cost or not actual_price:
+                raise ccxt.ExchangeError(f"Order details incomplete: {order_details}")
+
+            logger.info(f"Order executed: spent {cost} USDT to buy {filled_btc} BTC at {actual_price} USDT/BTC")
 
             return {
                 'success': True,
-                'order_id': order['id'],
+                'order_id': order_details['id'],
                 'btc_amount': filled_btc,
                 'usd_amount': cost,
                 'price': actual_price
             }
 
+        except ccxt.InsufficientFunds as e:
+            logger.error(f"Insufficient funds for order: {str(e)}")
+            raise
+        except ccxt.PermissionDenied as e:
+            logger.error(f"Permission denied: {str(e)}")
+            raise
+        except ccxt.ExchangeError as e:
+            logger.error(f"Exchange error: {str(e)}")
+            raise
         except Exception as e:
-            logger.error(f"Error placing order: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            logger.error(f"Unexpected error placing order: {str(e)}")
+            raise
 
     def calculate_days_left(self) -> Tuple[float, int]:
         """Calculate how many days of DCA are left based on USDT balance."""

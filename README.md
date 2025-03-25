@@ -144,6 +144,44 @@ make init-env        # Create .env file from example
 make dry-run         # Run in dry-run mode
 ```
 
+## Testing
+
+The DCA bot includes production tests built with pytest to verify functionality in your environment.
+
+### Running Tests
+
+The test suite performs three key checks:
+
+1. **Trading Test**: Purchases a small amount of Bitcoin ($1) and immediately sells it back
+2. **Telegram Test**: Sends a test notification to your configured Telegram user
+3. **Database Test**: Verifies MongoDB connection, creates a test collection, and performs basic operations
+
+Run the tests in Docker with:
+
+```bash
+make test
+```
+
+This will execute all tests using your production credentials. Since it uses real accounts, it will make a small ($1) actual purchase and sale of Bitcoin.
+
+If you want to avoid making actual trades, you can set `DRY_RUN=true` in your .env file before running the tests:
+
+```bash
+# Edit .env to set DRY_RUN=true
+make test
+```
+
+### Test Framework
+
+The tests are built using:
+
+- **pytest**: Industry-standard Python testing framework
+- **pytest-asyncio**: For testing asynchronous Telegram functionality
+- **Assertions**: Clear test conditions with descriptive messages
+- **Automatic skipping**: Trade tests are skipped in dry-run mode
+
+This provides a robust verification of all system components.
+
 ## Security Considerations
 
 This bot handles financial operations, so security is critical. Here are the security measures implemented:
@@ -174,6 +212,8 @@ This bot handles financial operations, so security is critical. Here are the sec
 - **Bot not responding**: Check Docker logs with `make logs`
 - **No trades executed**: Verify your OKX API credentials and permissions
 - **MongoDB connection issues**: Check your MongoDB Atlas connection string and network settings
+- **Tests failing**: Ensure you've set up the correct credentials in `.env.test`
+- **Docker test issues**: Make sure Docker and Docker Compose are installed and running properly
 
 ## License
 
