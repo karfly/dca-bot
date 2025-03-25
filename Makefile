@@ -43,7 +43,7 @@ dry-run:
 # Test command
 test: check-env
 	@echo "Running production tests..."
-	docker-compose run --rm app python -m pytest -xvs tests/test_prod.py
+	docker-compose run --rm app python -m pytest -xvs --log-cli-level=INFO tests/test_prod.py
 
 help:
 	@echo "Available commands:"
