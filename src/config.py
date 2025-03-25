@@ -34,6 +34,12 @@ class DCASettings(BaseModel):
         return v
 
 
+class PortfolioSettings(BaseModel):
+    """Portfolio settings for existing holdings."""
+    initial_btc_amount: float = 0.0
+    initial_avg_price_usd: float = 0.0
+
+
 class DatabaseSettings(BaseModel):
     """Database settings."""
     uri: str
@@ -45,6 +51,7 @@ class AppSettings(BaseSettings):
     telegram: TelegramSettings
     dca: DCASettings
     db: DatabaseSettings
+    portfolio: PortfolioSettings
     dry_run: bool = False
     log_level: str = "INFO"
     run_immediately: bool = False
@@ -74,6 +81,10 @@ def get_settings() -> AppSettings:
             time_utc=parse_time(get_env("DCA_TIME_UTC")),
             max_transaction_limit=float(get_env("MAX_TRANSACTION_LIMIT")),
             period=get_env("DCA_PERIOD", "1_day"),
+        ),
+        portfolio=PortfolioSettings(
+            initial_btc_amount=float(get_env("PORTFOLIO_INITIAL_BTC", "0.0")),
+            initial_avg_price_usd=float(get_env("PORTFOLIO_INITIAL_AVG_PRICE", "0.0")),
         ),
         db=DatabaseSettings(
             uri=get_env("MONGODB_URI"),

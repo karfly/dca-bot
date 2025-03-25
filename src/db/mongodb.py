@@ -60,26 +60,54 @@ class MongoDB:
         """Get trade statistics."""
         trades = self.get_all_trades()
 
-        if not trades:
+        # Get initial portfolio settings
+        initial_btc = settings.portfolio.initial_btc_amount
+        initial_avg_price = settings.portfolio.initial_avg_price_usd
+        initial_investment = initial_btc * initial_avg_price if initial_btc > 0 and initial_avg_price > 0 else 0
+
+        if not trades and initial_btc <= 0:
             return {
                 "num_trades": 0,
                 "total_spent_usd": 0,
                 "total_btc": 0,
                 "mean_price": 0,
+                "initial_portfolio": {
+                    "btc_amount": 0,
+                    "avg_price": 0,
+                    "investment": 0
+                }
             }
 
-        total_spent_usd = sum(trade["usd_amount"] for trade in trades)
-        total_btc = sum(trade["btc_amount"] for trade in trades)
+        # Calculate DCA trade statistics
+        dca_spent_usd = sum(trade["usd_amount"] for trade in trades)
+        dca_btc = sum(trade["btc_amount"] for trade in trades)
+        dca_mean_price = dca_spent_usd / dca_btc if dca_btc > 0 else 0
+
+        # Combine with initial portfolio
+        total_spent_usd = dca_spent_usd + initial_investment
+        total_btc = dca_btc + initial_btc
+
+        # Calculate combined average price
         mean_price = total_spent_usd / total_btc if total_btc > 0 else 0
 
-        return {
+        result = {
             "num_trades": len(trades),
             "total_spent_usd": total_spent_usd,
             "total_btc": total_btc,
             "mean_price": mean_price,
-            "first_trade_date": trades[0]["timestamp"],
-            "last_trade_date": trades[-1]["timestamp"],
+            "initial_portfolio": {
+                "btc_amount": initial_btc,
+                "avg_price": initial_avg_price,
+                "investment": initial_investment
+            }
         }
+
+        # Add first and last trade dates if we have trades
+        if trades:
+            result["first_trade_date"] = trades[0]["timestamp"]
+            result["last_trade_date"] = trades[-1]["timestamp"]
+
+        return result
 
     def get_latest_trade(self) -> Optional[Dict[str, Any]]:
         """Get the latest trade from the database."""

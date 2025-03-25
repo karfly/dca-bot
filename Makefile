@@ -1,4 +1,4 @@
-.PHONY: build up stop logs restart status clean run-local init-env dry-run test help up_and_logs
+.PHONY: build up stop logs restart status clean run-local init-env dry-run test help up_and_logs clear-db
 
 # Default variables
 ENV_FILE ?= .env
@@ -26,6 +26,10 @@ status:
 
 clean: stop
 	docker compose rm -f
+
+clear-db: check-env
+	@echo "Clearing database..."
+	docker compose run --rm --build app python -c "from pymongo import MongoClient; from src.config import settings; client = MongoClient(settings.db.uri); client.dca_bot.trades.drop(); print('Trades collection cleared successfully.')"
 
 check-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
@@ -58,6 +62,7 @@ help:
 	@echo "  make restart    - Restart container"
 	@echo "  make status     - Check container status"
 	@echo "  make clean      - Stop and remove container"
+	@echo "  make clear-db   - Clear the database by dropping trades collection"
 	@echo "  make run-local  - Run application locally"
 	@echo "  make init-env   - Create .env file from .env.example"
 	@echo "  make dry-run    - Run application in dry run mode (no actual trades)"
