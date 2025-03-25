@@ -13,18 +13,18 @@ up:
 up_and_logs:
 	docker compose up --build
 
-stop:
+down:
 	docker compose down
 
 logs:
 	docker compose logs -f
 
-restart: stop up
+restart: down up
 
 status:
 	docker compose ps
 
-clean: stop
+clean: down
 	docker compose rm -f
 
 clear-db: check-env
@@ -57,7 +57,7 @@ help:
 	@echo "  make build      - Build Docker image"
 	@echo "  make up         - Start container in detached mode"
 	@echo "  make up_and_logs - Start container and show logs"
-	@echo "  make stop       - Stop container"
+	@echo "  make down       - Stop container"
 	@echo "  make logs       - View container logs"
 	@echo "  make restart    - Restart container"
 	@echo "  make status     - Check container status"
