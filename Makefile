@@ -5,27 +5,27 @@ ENV_FILE ?= .env
 
 # Commands
 build:
-	docker-compose build
+	docker compose build
 
 up:
-	docker-compose up -d --build
+	docker compose up -d --build
 
 up_and_logs:
-	docker-compose up --build
+	docker compose up --build
 
 stop:
-	docker-compose down
+	docker compose down
 
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 restart: stop up
 
 status:
-	docker-compose ps
+	docker compose ps
 
 clean: stop
-	docker-compose rm -f
+	docker compose rm -f
 
 check-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
@@ -46,7 +46,7 @@ dry-run:
 # Test command
 test: check-env
 	@echo "Running production tests..."
-	docker-compose run --rm --build app python -m pytest -xvs --log-cli-level=INFO tests/test_prod.py
+	docker compose run --rm --build app python -m pytest -xvs --log-cli-level=INFO tests/test_prod.py
 
 help:
 	@echo "Available commands:"
