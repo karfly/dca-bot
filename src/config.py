@@ -1,9 +1,9 @@
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, ConfigDict
 import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 from datetime import time
-from pydantic import validator
+from pydantic import field_validator
 
 
 class OkxSettings(BaseModel):
@@ -18,7 +18,8 @@ class ExchangeSettings(BaseModel):
     """Exchange settings."""
     id: str = "okx"  # Default to OKX
 
-    @validator("id")
+    @field_validator("id")
+    @classmethod
     def validate_exchange_id(cls, v):
         # Currently only OKX is fully tested and supported
         supported_exchanges = ["okx", "binance", "coinbase", "kucoin", "bybit"]
@@ -40,7 +41,8 @@ class DCASettings(BaseModel):
     max_transaction_limit: float
     period: str = "1_day"  # "1_day" or "1_minute"
 
-    @validator("period")
+    @field_validator("period")
+    @classmethod
     def validate_period(cls, v):
         if v not in ["1_day", "1_minute"]:
             raise ValueError('period must be either "1_day" or "1_minute"')
@@ -70,11 +72,12 @@ class AppSettings(BaseSettings):
     log_level: str = "INFO"
     run_immediately: bool = False
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_nested_delimiter = "__"
+    model_config = ConfigDict(
+        env_file = ".env",
+        env_file_encoding = "utf-8",
+        env_nested_delimiter = "__",
         extra = "allow"
+    )
 
 
 def get_settings() -> AppSettings:
