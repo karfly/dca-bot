@@ -5,11 +5,12 @@ import time
 
 from src.config import settings
 from src.utils.security import validate_transaction_amount
+from src.exchange.base import Exchange
 
 logger = logging.getLogger(__name__)
 
 
-class OKXExchange:
+class OKXExchange(Exchange):
     """OKX Exchange integration."""
 
     def __init__(
@@ -17,10 +18,13 @@ class OKXExchange:
         api_key: str,
         api_secret: str,
         api_passphrase: str,
-        subaccount_name: str,
+        subaccount_name: str = None,
+        symbol: str = 'BTC/USDT',
         dry_run: bool = False
     ):
         """Initialize OKX exchange client."""
+        super().__init__(api_key, api_secret, symbol, dry_run)
+
         self.exchange = ccxt.okx({
             'apiKey': api_key,
             'secret': api_secret,
@@ -36,8 +40,6 @@ class OKXExchange:
             self.exchange.headers.update({'x-simulated-trading': '0'})
             self.exchange.options['account'] = 'trading'
 
-        self.dry_run = dry_run
-        self.symbol = 'BTC/USDT'
         logger.info(f"OKX client initialized (dry_run: {dry_run})")
 
     def get_ticker(self) -> Dict[str, Any]:
@@ -140,6 +142,30 @@ class OKXExchange:
         """Get current BTC price in USDT."""
         ticker = self.get_ticker()
         return ticker['last']
+
+    def create_market_sell_order(self, symbol: str, amount: float) -> Dict[str, Any]:
+        """Create a market sell order.
+
+        Args:
+            symbol: The trading pair symbol (e.g. 'BTC/USDT')
+            amount: The amount of the base currency to sell
+
+        Returns:
+            The order details
+        """
+        if self.dry_run:
+            logger.info(f"DRY RUN: Would sell {amount} of {symbol}")
+            return {
+                'id': 'dry-run-sell',
+                'symbol': symbol,
+                'amount': amount,
+                'price': self.get_current_price(),
+                'side': 'sell',
+                'type': 'market',
+                'dry_run': True
+            }
+
+        return self.exchange.create_market_sell_order(symbol, amount, {'tdMode': 'cash'})
 
 
 # Singleton instance

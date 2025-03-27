@@ -1,14 +1,17 @@
 # Bitcoin DCA Bot
 
-A Docker-based Bitcoin Dollar Cost Averaging (DCA) bot that automatically purchases Bitcoin on a daily schedule via OKX exchange and sends notifications through Telegram.
+A Docker-based Bitcoin Dollar Cost Averaging (DCA) bot that automatically purchases Bitcoin on a daily schedule via cryptocurrency exchanges and sends notifications through Telegram.
+
+> **NOTE:** This bot is built with [CCXT](https://github.com/ccxt/ccxt) to support multiple exchanges, but it has been fully tested only with OKX. When using other exchanges, the bot will attempt to work but may have unexpected behavior. Contributions to improve support for other exchanges are welcome!
 
 ## Features
 
+- **Multi-Exchange Support**: Built with CCXT to support multiple exchanges (currently fully tested with OKX)
 - **Automated DCA**: Buy a configurable amount of Bitcoin daily at a specified UTC time
 - **Telegram Integration**: Receive notifications and check stats via Telegram bot
 - **MongoDB Integration**: Track trade history and performance
 - **Balance Tracking**: Monitor USDT balance and days left at current rate
-- **Security Features**: Transaction limits, OKX subaccount isolation, dry-run mode
+- **Security Features**: Transaction limits, exchange subaccount isolation, dry-run mode
 - **Docker Support**: Easy deployment and management
 - **Detailed Stats**: View your DCA performance statistics
 - **Portfolio Tracking**: Track existing BTC holdings alongside DCA purchases
@@ -105,6 +108,7 @@ For enhanced security, create a dedicated subaccount for the DCA bot:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
+| `EXCHANGE_ID` | Exchange to use (via CCXT) | `okx` (default, only fully tested exchange) |
 | `OKX_API_KEY` | OKX API key | `a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6` |
 | `OKX_API_SECRET` | OKX API secret | `YOUR_SECRET_KEY` |
 | `OKX_API_PASSPHRASE` | OKX API passphrase | `your_passphrase` |
@@ -229,3 +233,21 @@ MIT License
 - [CCXT](https://github.com/ccxt/ccxt) for exchange integration
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) for Telegram bot functionality
 - [pymongo](https://github.com/mongodb/mongo-python-driver) for MongoDB integration
+
+## Exchange Support
+
+The bot is built using [CCXT](https://github.com/ccxt/ccxt), which provides a unified API for trading across many cryptocurrency exchanges. Currently, the bot has been fully tested with:
+
+- **OKX**: All features fully tested and supported
+
+Other exchanges supported by CCXT should work with minimal modifications, but they haven't been fully tested. The application architecture is designed to make adding support for other exchanges straightforward.
+
+### Using Other Exchanges
+
+To use another exchange supported by CCXT:
+
+1. Set `EXCHANGE_ID` in your `.env` file to the exchange identifier (e.g., `binance`, `coinbase`, `kucoin`)
+2. Provide the appropriate API credentials for that exchange in your `.env` file
+3. Note that subaccount support and specific trading parameters may vary between exchanges
+
+If you encounter issues with a specific exchange, contributions to improve support are welcome.

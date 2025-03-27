@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 from src.config import settings
-from src.exchange.okx import okx
+from src.exchange import exchange
 from src.db.mongodb import db
 from src.bot.telegram import telegram_bot
 
@@ -33,7 +33,7 @@ class DCAScheduler:
                 return
 
             # Check if there's enough balance
-            balances = okx.get_account_balance()
+            balances = exchange.get_account_balance()
             usdt_balance = balances["USDT"]
             dca_amount = settings.dca.amount_usd
 
@@ -47,7 +47,7 @@ class DCAScheduler:
                 return
 
             # Execute the buy
-            trade_result = okx.buy_bitcoin(dca_amount)
+            trade_result = exchange.buy_bitcoin(dca_amount)
 
             if not trade_result["success"]:
                 logger.error(f"DCA execution failed: {trade_result.get('error')}")

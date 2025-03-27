@@ -16,7 +16,7 @@ from pydantic import BaseModel
 import ccxt
 
 from src.config import settings
-from src.exchange.okx import okx
+from src.exchange import exchange
 from src.bot.telegram import telegram_bot
 from src.db.mongodb import db
 
@@ -29,24 +29,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class TestOKX:
-    """Tests for OKX exchange integration"""
+class TestExchange:
+    """Tests for cryptocurrency exchange integration"""
 
     @pytest.mark.skipif(settings.dry_run, reason="Skipping actual trade test in dry run mode")
     def test_btc_buy_sell(self):
         """Test buying Bitcoin for $1 and selling the received amount"""
-        logger.info("\n=== Starting OKX Buy/Sell Test ===")
+        logger.info(f"\n=== Starting Exchange Buy/Sell Test ({settings.exchange.id.upper()}) ===")
         test_amount_usd = 1.0
         logger.info(f"Test parameters: Buy amount = {test_amount_usd} USDT")
 
         # Get current price
-        current_price = okx.get_current_price()
+        current_price = exchange.get_current_price()
         logger.info(f"Current BTC price: {current_price} USDT")
         expected_btc_amount = round(test_amount_usd / current_price, 8)
         logger.info(f"Expected BTC amount (without fees): ~{expected_btc_amount}")
 
         # Get BTC balance before
-        balances_before = okx.get_account_balance()
+        balances_before = exchange.get_account_balance()
         btc_before = balances_before.get('BTC', 0)
         usdt_before = balances_before.get('USDT', 0)
         logger.info(f"Initial balances: BTC={btc_before:.8f}, USDT={usdt_before:.2f}")
@@ -54,7 +54,7 @@ class TestOKX:
         try:
             # Buy BTC with $1
             logger.info("\n--- Executing Buy Order ---")
-            buy_result = okx.buy_bitcoin(test_amount_usd)
+            buy_result = exchange.buy_bitcoin(test_amount_usd)
             logger.info(f"Buy order details:")
             logger.info(f"- Order ID: {buy_result['order_id']}")
             logger.info(f"- BTC amount: {buy_result['btc_amount']:.8f}")
@@ -66,7 +66,7 @@ class TestOKX:
             time.sleep(5)
 
             # Get BTC balance after buy to verify the trade worked
-            balances_after_buy = okx.get_account_balance()
+            balances_after_buy = exchange.get_account_balance()
             btc_after_buy = balances_after_buy.get('BTC', 0)
             usdt_after_buy = balances_after_buy.get('USDT', 0)
             btc_amount = btc_after_buy - btc_before
@@ -84,7 +84,7 @@ class TestOKX:
             btc_amount = round(btc_amount, 8)  # Format to OKX precision
             logger.info(f"Selling BTC amount: {btc_amount:.8f}")
 
-            sell_order = okx.exchange.create_market_sell_order(okx.symbol, btc_amount)
+            sell_order = exchange.create_market_sell_order(exchange.symbol, btc_amount)
             logger.info(f"Sell order placed:")
             logger.info(f"- Order ID: {sell_order['id']}")
             logger.info(f"- Amount: {sell_order.get('amount', 'N/A')}")
@@ -95,7 +95,7 @@ class TestOKX:
             time.sleep(5)
 
             # Get balance after sell
-            balances_after_sell = okx.get_account_balance()
+            balances_after_sell = exchange.get_account_balance()
             btc_after_sell = balances_after_sell.get('BTC', 0)
             usdt_after_sell = balances_after_sell.get('USDT', 0)
             btc_change = btc_after_sell - btc_before
@@ -113,7 +113,7 @@ class TestOKX:
             total_fee_usdt = abs(usdt_change)
             logger.info(f"\nTotal fees paid: ~{total_fee_usdt:.4f} USDT")
 
-            logger.info("\n=== OKX Buy/Sell Test Completed Successfully ===")
+            logger.info(f"\n=== Exchange Buy/Sell Test Completed Successfully ({settings.exchange.id.upper()}) ===")
 
         except ccxt.PermissionDenied as e:
             logger.error("\n❌ Test failed: Permission denied")

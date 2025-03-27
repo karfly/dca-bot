@@ -10,7 +10,7 @@ from telegram.ext import (
 from telegram.constants import ParseMode
 
 from src.config import settings
-from src.exchange.okx import okx
+from src.exchange import exchange
 from src.db.mongodb import db
 from src.utils.formatters import format_stats_message, format_trade_notification
 
@@ -55,8 +55,8 @@ class TelegramBot:
 
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /balance command."""
-        balances = okx.get_account_balance()
-        usdt_balance, days_left = okx.calculate_days_left()
+        balances = exchange.get_account_balance()
+        usdt_balance, days_left = exchange.calculate_days_left()
 
         message = f"""
 <b>💰 Account Balance</b>
@@ -88,8 +88,8 @@ class TelegramBot:
     async def send_stats(self, update: Update) -> None:
         """Send statistics to the user."""
         stats = db.get_trade_stats()
-        current_price = okx.get_current_price()
-        usdt_balance, days_left = okx.calculate_days_left()
+        current_price = exchange.get_current_price()
+        usdt_balance, days_left = exchange.calculate_days_left()
 
         # Calculate time until next trade from the scheduler
         from src.scheduler import dca_scheduler
@@ -105,8 +105,8 @@ class TelegramBot:
     async def send_trade_notification(self, trade: dict) -> None:
         """Send trade notification to the user."""
         stats = db.get_trade_stats()
-        current_price = okx.get_current_price()
-        usdt_balance, days_left = okx.calculate_days_left()
+        current_price = exchange.get_current_price()
+        usdt_balance, days_left = exchange.calculate_days_left()
 
         # Calculate time until next trade from the scheduler
         from src.scheduler import dca_scheduler

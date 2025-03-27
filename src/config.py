@@ -14,6 +14,19 @@ class OkxSettings(BaseModel):
     subaccount_name: str
 
 
+class ExchangeSettings(BaseModel):
+    """Exchange settings."""
+    id: str = "okx"  # Default to OKX
+
+    @validator("id")
+    def validate_exchange_id(cls, v):
+        # Currently only OKX is fully tested and supported
+        supported_exchanges = ["okx", "binance", "coinbase", "kucoin", "bybit"]
+        if v.lower() not in supported_exchanges:
+            raise ValueError(f"Exchange {v} is not supported yet. Supported exchanges: {', '.join(supported_exchanges)}")
+        return v.lower()
+
+
 class TelegramSettings(BaseModel):
     """Telegram bot settings."""
     bot_token: str
@@ -48,6 +61,7 @@ class DatabaseSettings(BaseModel):
 class AppSettings(BaseSettings):
     """Main application settings."""
     okx: OkxSettings
+    exchange: ExchangeSettings
     telegram: TelegramSettings
     dca: DCASettings
     db: DatabaseSettings
@@ -71,6 +85,9 @@ def get_settings() -> AppSettings:
             api_secret=get_env("OKX_API_SECRET"),
             api_passphrase=get_env("OKX_API_PASSPHRASE"),
             subaccount_name=get_env("OKX_SUBACCOUNT_NAME"),
+        ),
+        exchange=ExchangeSettings(
+            id=get_env("EXCHANGE_ID", "okx"),
         ),
         telegram=TelegramSettings(
             bot_token=get_env("TELEGRAM_BOT_TOKEN"),

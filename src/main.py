@@ -9,7 +9,7 @@ import dotenv
 dotenv.load_dotenv()
 
 from src.config import settings
-from src.exchange.okx import okx
+from src.exchange import exchange
 from src.bot.telegram import telegram_bot
 from src.scheduler import dca_scheduler
 from src.db.mongodb import db
@@ -69,11 +69,11 @@ async def run_app() -> None:
 
         # Check OKX API connectivity
         logging.info("Testing OKX API connectivity...")
-        ticker = okx.get_ticker()
+        ticker = exchange.get_ticker()
         logging.info(f"Current BTC price: ${ticker['last']:.2f}")
 
         # Check account balance
-        balances = okx.get_account_balance()
+        balances = exchange.get_account_balance()
         logging.info(f"USDT balance: ${balances['USDT']:.2f}")
 
         if balances['USDT'] < settings.dca.amount_usd:
