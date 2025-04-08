@@ -8,6 +8,8 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ParseMode
+from telegram import InputFile
+from datetime import datetime, timedelta
 
 from src.config import settings
 from src.exchange import exchange
@@ -91,23 +93,43 @@ class TelegramBot:
         logger.error(f"Update {update} caused error: {context.error}")
 
     async def send_stats(self, update: Update) -> None:
-        """Send statistics to the user."""
-        stats = db.get_trade_stats()
-        current_price = exchange.get_current_price()
+        """Send statistics message to the user."""
+        # await update.message.reply_chat_action('upload_photo') # Removed image generation action
 
-        # Calculate time until next trade from the scheduler
-        from src.scheduler import dca_scheduler
-        usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
-        remaining_duration = exchange.calculate_remaining_duration()
-        next_trade_time = dca_scheduler.get_time_until_next_trade()
+        try:
+            stats = db.get_trade_stats()
+            current_price = exchange.get_current_price()
+            usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+            # Get days left info instead
+            days_left, amount_per_original_unit, original_unit_name = exchange.calculate_remaining_days()
 
-        message = format_stats_message(stats, current_price, usdt_balance, remaining_duration, next_trade_time)
+            from src.scheduler import dca_scheduler
+            next_trade_time = dca_scheduler.get_time_until_next_trade() # hours, minutes
 
-        await update.message.reply_text(
-            message,
-            parse_mode=ParseMode.HTML,
-            disable_notification=not settings.telegram.notification_sound
-        )
+            # Format the text message - pass days_left info
+            message = format_stats_message(
+                stats=stats,
+                current_price=current_price,
+                usdt_balance=usdt_balance,
+                # remaining_duration=remaining_duration, # Removed
+                days_left=days_left,
+                amount_per_original_unit=amount_per_original_unit,
+                original_unit_name=original_unit_name,
+                next_trade_time=next_trade_time
+            )
+
+            await update.message.reply_text(
+                message,
+                parse_mode=ParseMode.HTML,
+                disable_notification=not settings.telegram.notification_sound
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching or formatting stats: {e}", exc_info=True)
+            await update.message.reply_text(
+                "❌ An error occurred while fetching or generating statistics.",
+                disable_notification=not settings.telegram.notification_sound
+            )
 
     async def send_trade_notification(self, trade: dict) -> None:
         """Send trade notification to the user."""

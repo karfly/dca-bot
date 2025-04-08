@@ -12,19 +12,26 @@ except locale.Error:
         locale.setlocale(locale.LC_ALL, '') # System default as last resort
 
 
-def format_money(amount: float, decimals: int = 2) -> str:
-    """Format money amount with comma as thousands separator."""
-    return locale.format_string(f"%.{decimals}f", amount, grouping=True)
+def format_money(amount: float, decimals: int = 1) -> str:
+    """Format money amount with comma as thousands separator and specified decimal places.
+       Handles negative sign correctly.
+    """
+    # Format using f-string with comma separator
+    formatted = f"{abs(amount):,.{decimals}f}"
+    # Prepend negative sign if needed
+    return f"-${formatted}" if amount < 0 else f"${formatted}"
 
 
-def format_btc(amount: float) -> str:
-    """Format BTC amount with 8 decimal places."""
-    return f"{amount:.8f}"
+def format_btc(amount: float, decimals: int = 5) -> str:
+    """Format BTC amount with specified decimal places (default 5)."""
+    return f"{amount:.{decimals}f}"
 
 
-def format_percentage(value: float) -> str:
-    """Format percentage value."""
-    return f"{value:.2f}%"
+def format_percentage(value: float, decimals: int = 1) -> str:
+    """Format percentage value with 1 decimal place."""
+    # Ensure the % sign is appended correctly
+    formatted_value = f"{value:.{decimals}f}"
+    return f"{formatted_value}%"
 
 
 def format_trade_notification(
@@ -112,7 +119,9 @@ def format_stats_message(
     stats: Dict[str, Any],
     current_price: float,
     usdt_balance: float,
-    remaining_duration: Tuple[int, str, float, str], # (value, unit, amount_per_unit, unit_name)
+    days_left: int,
+    amount_per_original_unit: float,
+    original_unit_name: str, # Likely 'day'
     next_trade_time: Tuple[int, int]
 ) -> str:
     """
@@ -122,18 +131,16 @@ def format_stats_message(
         stats: Trading statistics
         current_price: Current BTC price
         usdt_balance: USDT balance
-        remaining_duration: Tuple (value, unit, amount_per_unit, unit_name)
+        days_left: Total days the schedule can run with current balance.
+        amount_per_original_unit: The configured amount per the original schedule unit (e.g., per day).
+        original_unit_name: The name of the original schedule unit (e.g., 'day').
         next_trade_time: Tuple of (hours, minutes) until next trade
 
     Returns:
         str: Formatted HTML message
     """
-    # Unpack remaining duration
-    remaining_value, unit, amount_per_unit, unit_name = remaining_duration
-    unit_plural = unit_name + ("s" if remaining_value != 1 else "")
-
-    # Estimate end date based on the actual unit
-    end_date = datetime.now() + timedelta(**{unit: remaining_value})
+    # Estimate end date based on days_left
+    end_date = datetime.now() + timedelta(days=days_left)
 
     # Get time until next trade
     hours, minutes = next_trade_time
@@ -175,9 +182,9 @@ def format_stats_message(
         initial_portfolio_section = f"""
 <b>Initial Portfolio Details:</b>
 • BTC Amount: <code>{format_btc(initial_portfolio["btc_amount"])}</code>
-• Average Price: <code>${format_money(initial_portfolio["avg_price"], 2)}</code>
-• Initial Investment: <code>${format_money(initial_portfolio["investment"], 2)}</code>
-• PnL: <code>${format_money(initial_pnl, 2)}</code> ({format_percentage(initial_pnl_percent)})
+• Average Price: <code>{format_money(initial_portfolio["avg_price"], 2)}</code>
+• Initial Investment: <code>{format_money(initial_portfolio["investment"], 2)}</code>
+• PnL: <code>{format_money(initial_pnl, 2)}</code> ({format_percentage(initial_pnl_percent)})
 """
 
     # DCA section
@@ -191,10 +198,10 @@ def format_stats_message(
             dca_pnl_percent = (current_price / dca_avg_price - 1) * 100 if dca_avg_price > 0 else 0
             dca_section = f"""
 <b>DCA Strategy Details:</b>
-• Invested: <code>${format_money(dca_investment)}</code>
+• Invested: <code>{format_money(dca_investment)}</code>
 • BTC Accumulated: <code>{format_btc(dca_btc)}</code>
-• Average Price: <code>${format_money(dca_avg_price, 2)}</code>
-• PnL: <code>${format_money(dca_pnl, 2)}</code> ({format_percentage(dca_pnl_percent)})
+• Average Price: <code>{format_money(dca_avg_price, 2)}</code>
+• PnL: <code>{format_money(dca_pnl, 2)}</code> ({format_percentage(dca_pnl_percent)})
 """
 
     # --- Assemble Main Message ---
@@ -202,12 +209,12 @@ def format_stats_message(
 <b>📊 Your Bitcoin Portfolio Statistics</b>
 
 <b>Overall Summary:</b>
-• Total Investment: <code>${format_money(stats['total_spent_usd'])}</code>
+• Total Investment: <code>{format_money(stats['total_spent_usd'])}</code>
 • Total BTC: <code>{format_btc(stats['total_btc'])}</code>
-• Average Price: <code>${format_money(stats['mean_price'], 2)}</code>
-• Current Price: <code>${format_money(current_price, 2)}</code>
-• Current Value: <code>${format_money(stats['total_btc'] * current_price, 2)}</code>
-• Total PnL: <code>${format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})
+• Average Price: <code>{format_money(stats['mean_price'], 2)}</code>
+• Current Price: <code>{format_money(current_price, 2)}</code>
+• Current Value: <code>{format_money(stats['total_btc'] * current_price, 2)}</code>
+• Total PnL: <code>{format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})
 
 <b>Schedule:</b>
 {next_trade_info}
@@ -217,8 +224,8 @@ def format_stats_message(
 </blockquote >
 
 <b>Balance:</b>
-• USDT Remaining: <code>${format_money(usdt_balance, 2)}</code>
-• {unit_plural.capitalize()} Left: <code>{remaining_value}</code> (at ${format_money(amount_per_unit)}/{unit_name})
+• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
+• Days Left: <code>{days_left}</code> (at {format_money(amount_per_original_unit)}/{original_unit_name})
 • Estimated End Date: <code>{end_date.strftime('%Y-%m-%d %H:%M')}</code>
 """
     return message

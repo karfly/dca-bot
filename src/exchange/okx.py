@@ -157,6 +157,35 @@ class OKXExchange(Exchange):
 
         return remaining_value, unit, amount_per_period, unit_name
 
+    def calculate_remaining_days(self) -> Tuple[int, float, str]:
+        """Calculate approximate days left and return original period info."""
+        balance = self.get_account_balance()
+        usdt_balance = balance.get('USDT', 0.0)
+        amount_per_original_unit = settings.dca.amount_usd
+        period = settings.dca.period
+
+        days_left = 0
+        original_unit_name = "period"
+
+        if amount_per_original_unit > 0:
+            if period == "1_day":
+                days_left = int(usdt_balance / amount_per_original_unit)
+                original_unit_name = "day"
+            elif period == "1_hour":
+                # Calculate total hours, then convert to days
+                hours_left = usdt_balance / amount_per_original_unit
+                days_left = int(hours_left / 24)
+                original_unit_name = "hour"
+            elif period == "1_minute":
+                # Calculate total minutes, then convert to days
+                minutes_left = usdt_balance / amount_per_original_unit
+                days_left = int(minutes_left / (24 * 60))
+                original_unit_name = "minute"
+        else:
+            logger.warning("DCA amount is zero, cannot calculate remaining days.")
+
+        return days_left, amount_per_original_unit, original_unit_name
+
     def get_current_price(self) -> float:
         """Get current BTC price in USDT."""
         ticker = self.get_ticker()
