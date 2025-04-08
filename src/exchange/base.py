@@ -38,9 +38,8 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    def calculate_days_left(self) -> Tuple[float, int]:
-        """Calculate how many days of DCA are left based on USDT balance."""
-        pass
+    def calculate_remaining_duration(self) -> Tuple[int, str, float, str]:
+        """Calculate how many periods (days/hours/minutes) of DCA are left."""
 
     @abstractmethod
     def get_current_price(self) -> float:

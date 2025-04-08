@@ -128,15 +128,34 @@ class OKXExchange(Exchange):
             logger.error(f"Unexpected error placing order: {str(e)}")
             raise
 
-    def calculate_days_left(self) -> Tuple[float, int]:
-        """Calculate how many days of DCA are left based on USDT balance."""
+    def calculate_remaining_duration(self) -> Tuple[int, str, float, str]:
+        """Calculate how many periods (days/hours/minutes) of DCA are left."""
         balance = self.get_account_balance()
-        usdt_balance = balance['USDT']
+        usdt_balance = balance.get('USDT', 0.0)
+        amount_per_period = settings.dca.amount_usd
+        period = settings.dca.period
 
-        daily_amount = settings.dca.amount_usd
-        days_left = int(usdt_balance / daily_amount) if daily_amount > 0 else 0
+        remaining_value = 0
+        unit = "unknown"
+        unit_name = "period"
 
-        return usdt_balance, days_left
+        if amount_per_period > 0:
+            if period == "1_day":
+                remaining_value = int(usdt_balance / amount_per_period)
+                unit = "days"
+                unit_name = "day"
+            elif period == "1_hour":
+                remaining_value = int(usdt_balance / amount_per_period)
+                unit = "hours"
+                unit_name = "hour"
+            elif period == "1_minute":
+                remaining_value = int(usdt_balance / amount_per_period)
+                unit = "minutes"
+                unit_name = "minute"
+        else:
+             logger.warning("DCA amount is zero, cannot calculate remaining duration.")
+
+        return remaining_value, unit, amount_per_period, unit_name
 
     def get_current_price(self) -> float:
         """Get current BTC price in USDT."""

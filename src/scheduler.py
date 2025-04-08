@@ -255,28 +255,13 @@ Please deposit more funds to continue your DCA strategy.
         Returns:
             tuple: (hours, minutes) until the next trade
         """
+        # Handle minute period early
         if self.dca_period == "1_minute":
-            return (0, 1)  # Always 1 minute for minute-based DCA
+            return (0, 1)
 
+        # Get the next scheduled run time
         next_run = schedule.next_run()
-        if self.dca_period in ["1_minute", "1_hour"]:
-            # For minute/hour, the next run is roughly the interval duration
-            if self.dca_period == "1_minute":
-                return (0, 1)
-            elif self.dca_period == "1_hour":
-                # Calculate based on next run time vs now
-                now = datetime.now()
-                if next_run:
-                    diff = next_run - now
-                    if diff.total_seconds() < 0: diff = timedelta(hours=1) # Approximate if past
-                    h, rem = divmod(diff.seconds, 3600)
-                    m, _ = divmod(rem, 60)
-                    # Return minutes until next hour mark at specified minute
-                    return (h, m + 1) # Add 1 minute buffer for display
-                else:
-                    return (0, 60) # Fallback estimate
 
-        next_run = schedule.next_run()
         if next_run:
             now = datetime.now() # Use local time unless job is UTC
             is_utc_job = any(job.at_time is not None and job.unit == 'days' for job in schedule.get_jobs())
@@ -284,28 +269,37 @@ Please deposit more funds to continue your DCA strategy.
                 now = datetime.utcnow()
 
             time_diff = next_run - now
-            if time_diff.total_seconds() < 0: # If calculated next run is in the past
-                logger.warning("get_time_until_next_trade: Next run time is in the past, returning estimate.")
-                # Provide estimate based on period if calculation failed
-                if self.dca_period == "1_day": return (23, 59) # Approx 24h
-                # Hourly handled above
-                else: return (0, 0) # Should not happen
 
-            # Check if it's a daily job and calculate time diff
+            # Handle case where calculated next run is in the past
+            if time_diff.total_seconds() < 0:
+                logger.warning("get_time_until_next_trade: Next run time is in the past, returning estimate.")
+                if self.dca_period == "1_day": return (23, 59) # Approx 24h
+                if self.dca_period == "1_hour": return (0, 59) # Approx 1h
+                # Should not happen for 1_minute due to early return
+                return (0, 0)
+
+            # Calculate hours and minutes based on period
             if self.dca_period == "1_day":
-                 hours, remainder = divmod(time_diff.seconds, 3600)
-                 minutes, _ = divmod(remainder, 60)
-                 # Add full days if diff is more than a day
-                 total_hours = time_diff.days * 24 + hours
-                 return (total_hours, minutes)
-            # Hourly is handled in the block above
-            # Minute is handled at the start
+                hours, remainder = divmod(time_diff.seconds, 3600)
+                minutes, _ = divmod(remainder, 60)
+                total_hours = time_diff.days * 24 + hours
+                return (total_hours, minutes)
+
+            elif self.dca_period == "1_hour":
+                # If diff is very small (just executed), return estimate for the next hour
+                if time_diff.total_seconds() < 60:
+                    return (0, 59)
+                # Otherwise, calculate actual time until next :00
+                hours, remainder = divmod(time_diff.seconds, 3600)
+                minutes, _ = divmod(remainder, 60)
+                return (hours, minutes)
 
         # Fallback if scheduler has no next run (shouldn't normally happen if running)
-        logger.warning("get_time_until_next_trade: Could not determine next run time from scheduler.")
-        if self.dca_period == "1_day": return (23, 59) # Estimate
-        if self.dca_period == "1_hour": return (0, 59) # Estimate
-        return (0, 0)
+        logger.warning("get_time_until_next_trade: Could not determine next run time from scheduler. Returning estimate.")
+        if self.dca_period == "1_day": return (23, 59)
+        if self.dca_period == "1_hour": return (0, 59)
+        # Minute case handled above
+        return (0, 0) # Default fallback
 
 
 # Create singleton instance

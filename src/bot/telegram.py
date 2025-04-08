@@ -12,7 +12,7 @@ from telegram.constants import ParseMode
 from src.config import settings
 from src.exchange import exchange
 from src.db.mongodb import db
-from src.utils.formatters import format_stats_message, format_trade_notification
+from src.utils.formatters import format_stats_message, format_trade_notification, format_money
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +56,18 @@ class TelegramBot:
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /balance command."""
         balances = exchange.get_account_balance()
-        usdt_balance, days_left = exchange.calculate_days_left()
+
+        usdt_balance = balances.get('USDT', 0.0)
+        remaining_duration = exchange.calculate_remaining_duration()
+        remaining_value, unit, amount_per_unit, unit_name = remaining_duration
+        unit_plural = unit_name + ("s" if remaining_value != 1 else "")
 
         message = f"""
 <b>💰 Account Balance</b>
 
 • BTC: <code>{balances['BTC']:.8f}</code>
-• USDT: <code>${usdt_balance:.2f}</code>
-• Days Left: <code>{days_left}</code> (at ${settings.dca.amount_usd:.2f}/day)
+• USDT: <code>${format_money(usdt_balance)}</code>
+• {unit_plural.capitalize()} Left: <code>{remaining_value}</code> (at ${format_money(amount_per_unit)}/{unit_name})
 """
 
         await update.message.reply_text(
@@ -90,13 +94,14 @@ class TelegramBot:
         """Send statistics to the user."""
         stats = db.get_trade_stats()
         current_price = exchange.get_current_price()
-        usdt_balance, days_left = exchange.calculate_days_left()
 
         # Calculate time until next trade from the scheduler
         from src.scheduler import dca_scheduler
+        usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+        remaining_duration = exchange.calculate_remaining_duration()
         next_trade_time = dca_scheduler.get_time_until_next_trade()
 
-        message = format_stats_message(stats, current_price, usdt_balance, days_left, next_trade_time)
+        message = format_stats_message(stats, current_price, usdt_balance, remaining_duration, next_trade_time)
 
         await update.message.reply_text(
             message,
@@ -108,14 +113,15 @@ class TelegramBot:
         """Send trade notification to the user."""
         stats = db.get_trade_stats()
         current_price = exchange.get_current_price()
-        usdt_balance, days_left = exchange.calculate_days_left()
 
         # Calculate time until next trade from the scheduler
         from src.scheduler import dca_scheduler
+        usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+        remaining_duration = exchange.calculate_remaining_duration()
         next_trade_time = dca_scheduler.get_time_until_next_trade()
 
         message = format_trade_notification(
-            trade, stats, current_price, usdt_balance, days_left, next_trade_time
+            trade, stats, current_price, usdt_balance, remaining_duration, next_trade_time
         )
 
         await self.application.bot.send_message(
