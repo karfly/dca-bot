@@ -32,6 +32,7 @@ class TelegramSettings(BaseModel):
     """Telegram bot settings."""
     bot_token: str
     user_id: int
+    notification_sound: bool = True
 
 
 class DCASettings(BaseModel):
@@ -39,13 +40,13 @@ class DCASettings(BaseModel):
     amount_usd: float
     time_utc: time
     max_transaction_limit: float
-    period: str = "1_day"  # "1_day" or "1_minute"
+    period: str = "1_day"  # "1_day", "1_minute", or "1_hour"
 
     @field_validator("period")
     @classmethod
     def validate_period(cls, v):
-        if v not in ["1_day", "1_minute"]:
-            raise ValueError('period must be either "1_day" or "1_minute"')
+        if v not in ["1_day", "1_minute", "1_hour"]:
+            raise ValueError('period must be either "1_day", "1_minute", or "1_hour"')
         return v
 
 
@@ -75,7 +76,7 @@ class AppSettings(BaseSettings):
     model_config = ConfigDict(
         env_file = ".env",
         env_file_encoding = "utf-8",
-        env_nested_delimiter = "__",
+        env_file_nested_delimiter = "__",
         extra = "allow"
     )
 
@@ -95,6 +96,7 @@ def get_settings() -> AppSettings:
         telegram=TelegramSettings(
             bot_token=get_env("TELEGRAM_BOT_TOKEN"),
             user_id=int(get_env("TELEGRAM_USER_ID")),
+            notification_sound=get_env("TELEGRAM_NOTIFICATION_SOUND", "true").lower() == "true",
         ),
         dca=DCASettings(
             amount_usd=float(get_env("DCA_AMOUNT_USD")),

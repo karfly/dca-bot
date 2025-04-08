@@ -68,7 +68,8 @@ class TelegramBot:
 
         await update.message.reply_text(
             message,
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
+            disable_notification=not settings.telegram.notification_sound
         )
 
     async def text_message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -77,8 +78,8 @@ class TelegramBot:
         await update.message.reply_text(
             "Available commands:\n"
             "/start - Show your DCA statistics\n"
-            "/stats - Show your DCA statistics\n"
-            "/balance - Show your account balance"
+            "/balance - Show your account balance",
+            disable_notification=not settings.telegram.notification_sound
         )
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -99,7 +100,8 @@ class TelegramBot:
 
         await update.message.reply_text(
             message,
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
+            disable_notification=not settings.telegram.notification_sound
         )
 
     async def send_trade_notification(self, trade: dict) -> None:
@@ -119,7 +121,8 @@ class TelegramBot:
         await self.application.bot.send_message(
             chat_id=self.allowed_user_id,
             text=message,
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
+            disable_notification=not settings.telegram.notification_sound
         )
 
     def start(self) -> None:

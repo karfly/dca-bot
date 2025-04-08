@@ -116,7 +116,7 @@ For enhanced security, create a dedicated subaccount for the DCA bot:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token | `123456789:ABCdefGhIJKlmnOPQRstUVwxYZ` |
 | `TELEGRAM_USER_ID` | Your Telegram user ID | `123456789` |
 | `DCA_AMOUNT_USD` | USD amount to buy daily | `100.0` |
-| `DCA_PERIOD` | DCA execution period | `1_day` or `1_minute` |
+| `DCA_PERIOD` | DCA execution period | `1_day`, `1_minute` or `1_hour` |
 | `DCA_TIME_UTC` | Time to execute DCA (UTC) | `18:00` |
 | `MAX_TRANSACTION_LIMIT` | Maximum allowed transaction | `1000.0` |
 | `PORTFOLIO_INITIAL_BTC` | Initial BTC holdings | `0.5` |

@@ -162,7 +162,8 @@ Environment: Production
             await telegram_bot.application.bot.send_message(
                 chat_id=settings.telegram.user_id,
                 text=test_message,
-                parse_mode="HTML"
+                parse_mode="HTML",
+                disable_notification=not settings.telegram.notification_sound
             )
 
             logger.info("✅ Message sent successfully")
