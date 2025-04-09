@@ -1,9 +1,10 @@
 from pymongo import MongoClient
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import logging
 import ssl
 import certifi
+import pytz
 
 from src.config import settings
 
@@ -47,7 +48,7 @@ class MongoDB:
 
     def save_trade(self, trade_data: Dict[str, Any]) -> str:
         """Save a trade to the database."""
-        trade_data["timestamp"] = datetime.utcnow()
+        trade_data["timestamp"] = datetime.now(pytz.utc)
         result = self.trades.insert_one(trade_data)
         logger.info(f"Saved trade with ID: {result.inserted_id}")
         return str(result.inserted_id)
@@ -161,6 +162,26 @@ class MongoDB:
             return False
 
         return self.has_trade_in_timeframe(start_time, end_time)
+
+    def get_trades_since(self, start_time: datetime) -> List[Dict[str, Any]]:
+        """Fetch all trades executed since a specific start time."""
+        trades = self.trades.find({
+            "timestamp": {"$gte": start_time}
+        }).sort("timestamp", 1)  # Sort by time ascending
+        return list(trades)
+
+    def get_initial_portfolio(self) -> Dict[str, Any]:
+        # Implementation of get_initial_portfolio method
+        # This method should return the initial portfolio information
+        # based on the current state of the trades collection
+        # This is a placeholder and should be implemented
+        return {}
+
+    def get_last_trade_time(self) -> datetime | None:
+        # Implementation of get_last_trade_time method
+        # This method should return the timestamp of the last trade
+        # This is a placeholder and should be implemented
+        return None
 
 
 # Singleton instance

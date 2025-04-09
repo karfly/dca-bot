@@ -10,11 +10,12 @@ from telegram.ext import (
 from telegram.constants import ParseMode
 from telegram import InputFile
 from datetime import datetime, timedelta
+import pytz
 
 from src.config import settings
 from src.exchange import exchange
 from src.db.mongodb import db
-from src.utils.formatters import format_stats_message, format_trade_notification, format_money
+from src.utils.formatters import format_stats_message, format_trade_notification, format_money, format_trade_summary_notification
 
 logger = logging.getLogger(__name__)
 
@@ -131,27 +132,89 @@ class TelegramBot:
                 disable_notification=not settings.telegram.notification_sound
             )
 
+    async def send_trade_summary(self, period_start: datetime, period_end: datetime) -> None:
+        """Fetches trades in a period and sends a summary notification."""
+        logger.info(f"Generating trade summary for period: {period_start} to {period_end}")
+        try:
+            trades_from_db = db.get_trades_since(period_start)
+
+            # Filter trades strictly within the end time, handling mixed timezone awareness
+            trades = []
+            for t in trades_from_db:
+                timestamp = t['timestamp']
+                # If timestamp from DB is naive, assume it's UTC and make it aware
+                if timestamp.tzinfo is None or timestamp.tzinfo.utcoffset(timestamp) is None:
+                    timestamp = pytz.utc.localize(timestamp)
+                    # Or use timestamp = timestamp.replace(tzinfo=pytz.utc)
+
+                # Now compare aware timestamp with aware period_end
+                if timestamp < period_end:
+                    trades.append(t)
+
+            if not trades:
+                logger.info("No trades in the period to summarize.")
+                # Optionally send a "no trades" message?
+                # For now, we let the formatter handle the "no trades" message content.
+                # return # Can return early if we don't want "no trade" messages
+
+            # Fetch current data needed for the summary message
+            stats = db.get_trade_stats()
+            current_price = exchange.get_current_price()
+            usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+            from src.scheduler import dca_scheduler # Import here to avoid circular dependency at module level
+            next_trade_time = dca_scheduler.get_time_until_next_trade()
+
+            # Format the summary message
+            message = format_trade_summary_notification(
+                trades=trades,
+                period_start=period_start,
+                period_end=period_end,
+                stats=stats,
+                current_price=current_price,
+                usdt_balance=usdt_balance,
+                next_trade_time=next_trade_time
+            )
+
+            # Send the message
+            await self.application.bot.send_message(
+                chat_id=self.allowed_user_id,
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_notification=not settings.telegram.notification_sound # Keep sound off for summaries?
+            )
+            logger.info(f"Sent trade summary for {len(trades)} trades.")
+
+        except Exception as e:
+            logger.error(f"Error generating or sending trade summary: {e}", exc_info=True)
+            # Optionally send an error message to the user?
+            try:
+                await self.application.bot.send_message(
+                    chat_id=self.allowed_user_id,
+                    text="❌ Error generating trade summary report.",
+                    disable_notification=True
+                )
+            except Exception as send_e:
+                logger.error(f"Failed to send trade summary error notification: {send_e}")
+
     async def send_trade_notification(self, trade: dict) -> None:
-        """Send trade notification to the user."""
-        stats = db.get_trade_stats()
-        current_price = exchange.get_current_price()
+        """Handles trade completion: logs it, updates stats. (Does NOT send notification anymore)."""
+        # This function is called after a trade is successfully executed.
+        # We keep it to potentially log trades or update internal stats if needed,
+        # but the direct notification sending is removed.
+        logger.info(f"Trade completed (notification deferred to summary): {trade.get('order_id')}")
 
-        # Calculate time until next trade from the scheduler
-        from src.scheduler import dca_scheduler
-        usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
-        remaining_duration = exchange.calculate_remaining_duration()
-        next_trade_time = dca_scheduler.get_time_until_next_trade()
+        # Original data fetching (kept in case needed for logging/stats update in future):
+        # stats = db.get_trade_stats()
+        # current_price = exchange.get_current_price()
+        # from src.scheduler import dca_scheduler
+        # usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+        # remaining_duration = exchange.calculate_remaining_duration()
+        # next_trade_time = dca_scheduler.get_time_until_next_trade()
 
-        message = format_trade_notification(
-            trade, stats, current_price, usdt_balance, remaining_duration, next_trade_time
-        )
-
-        await self.application.bot.send_message(
-            chat_id=self.allowed_user_id,
-            text=message,
-            parse_mode=ParseMode.HTML,
-            disable_notification=not settings.telegram.notification_sound
-        )
+        # --- MESSAGE SENDING REMOVED ---
+        # message = format_trade_notification(...)
+        # await self.application.bot.send_message(...)
+        # --- --- --- --- --- --- --- ---
 
     def start(self) -> None:
         """Start the bot."""

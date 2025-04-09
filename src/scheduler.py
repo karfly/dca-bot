@@ -1,7 +1,9 @@
 import schedule
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
+import pytz
+import time # Import time module
 
 from src.config import settings
 from src.exchange import exchange
@@ -304,3 +306,80 @@ Please deposit more funds to continue your DCA strategy.
 
 # Create singleton instance
 dca_scheduler = DCAScheduler()
+
+# --- NEW Trade Summary Job ---
+def trade_summary_job(summary_start_time: datetime, summary_end_time: datetime):
+    """Job to trigger the sending of a trade summary message."""
+    logger.info(f"Executing scheduled trade summary job for period: {summary_start_time} - {summary_end_time}")
+    try:
+        asyncio.run(telegram_bot.send_trade_summary(summary_start_time, summary_end_time))
+    except Exception as e:
+        logger.error(f"Error during scheduled trade summary job: {e}", exc_info=True)
+
+# --- Schedule Definition ---
+def setup_schedule(schedule_settings: dict):
+    """Sets up the recurring jobs based on config."""
+    dca_scheduler.clear() # Clear existing jobs before setting up new ones
+    logger.info(f"Setting up schedule with settings: {schedule_settings}")
+
+    # -- Schedule DCA Job (existing) --
+    interval = schedule_settings['interval']
+    unit = schedule_settings['unit']
+
+    if unit == 'minutes':
+        dca_scheduler.every(interval).minutes.do(dca_job)
+    elif unit == 'hours':
+        dca_scheduler.every(interval).hours.do(dca_job)
+    elif unit == 'days':
+        dca_scheduler.every(interval).days.at("00:00").do(dca_job) # Example: run daily at midnight
+    elif unit == 'weeks':
+        dca_scheduler.every(interval).weeks.do(dca_job) # Day of week might need specification
+    else:
+        logger.error(f"Unsupported schedule unit: {unit}")
+        return # Don't schedule anything if config is wrong
+
+    logger.info(f"Scheduled DCA trades every {interval} {unit}.")
+
+    # -- Schedule Trade Summary Jobs --
+    # Define target times in UTC
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    noon_msk = dt_time(12, 1, 0) # Changed from 12:00
+    midnight_msk = dt_time(0, 1, 0) # Changed from 00:00
+
+    # Convert target MSK times to UTC for scheduling
+    # For the noon summary (approx 09:01 UTC), we summarize trades since midnight summary (approx 21:01 UTC prev day)
+    # For the midnight summary (approx 21:01 UTC), we summarize trades since noon summary (approx 09:01 UTC same day)
+    noon_utc_schedule_time = moscow_tz.localize(datetime.combine(datetime.now(moscow_tz).date(), noon_msk)).astimezone(pytz.utc).strftime("%H:%M")
+    midnight_utc_schedule_time = moscow_tz.localize(datetime.combine(datetime.now(moscow_tz).date(), midnight_msk)).astimezone(pytz.utc).strftime("%H:%M")
+
+    # Schedule the noon MSK (approx 09:01 UTC) summary
+    dca_scheduler.every().day.at(noon_utc_schedule_time, pytz.utc).do(
+        lambda: trade_summary_job(
+            # Summarize the 12 hours leading up to the scheduled time (approx 09:01 UTC)
+            summary_end_time=datetime.now(pytz.utc).replace(hour=int(noon_utc_schedule_time[:2]), minute=int(noon_utc_schedule_time[3:]), second=0, microsecond=0, tzinfo=pytz.utc),
+            summary_start_time=datetime.now(pytz.utc).replace(hour=int(noon_utc_schedule_time[:2]), minute=int(noon_utc_schedule_time[3:]), second=0, microsecond=0, tzinfo=pytz.utc) - timedelta(hours=12)
+        )
+    )
+    logger.info(f"Scheduled daily trade summary at 12:01 MSK ({noon_utc_schedule_time} UTC).") # Updated log message
+
+    # Schedule the midnight MSK (approx 21:01 UTC) summary
+    dca_scheduler.every().day.at(midnight_utc_schedule_time, pytz.utc).do(
+        lambda: trade_summary_job(
+            # Summarize the 12 hours leading up to the scheduled time (approx 21:01 UTC)
+            summary_end_time=datetime.now(pytz.utc).replace(hour=int(midnight_utc_schedule_time[:2]), minute=int(midnight_utc_schedule_time[3:]), second=0, microsecond=0, tzinfo=pytz.utc),
+            summary_start_time=datetime.now(pytz.utc).replace(hour=int(midnight_utc_schedule_time[:2]), minute=int(midnight_utc_schedule_time[3:]), second=0, microsecond=0, tzinfo=pytz.utc) - timedelta(hours=12)
+        )
+    )
+    logger.info(f"Scheduled daily trade summary at 00:01 MSK ({midnight_utc_schedule_time} UTC).") # Updated log message
+
+# --- Run Schedule Loop ---
+def run_schedule():
+    """Runs the scheduler loop indefinitely."""
+    logger.info("Starting scheduler loop...")
+    while True:
+        try:
+            schedule.run_pending()
+        except Exception as e:
+            # Catch errors within the loop to prevent the thread from crashing
+            logger.error(f"Error during schedule.run_pending(): {e}", exc_info=True)
+        time.sleep(1) # Check every second

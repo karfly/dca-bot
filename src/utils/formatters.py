@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from datetime import datetime, timedelta
 import locale
 
@@ -88,28 +88,28 @@ def format_trade_notification(
 <b>🎉 New Bitcoin Purchase Completed!</b>
 
 <b>Trade Details:</b>
-• Amount: <code>${format_money(trade['usd_amount'])}</code>
+• Amount: <code>{format_money(trade['usd_amount'])}</code>
 • BTC Received: <code>{format_btc(trade['btc_amount'])}</code>
-• Price: <code>${format_money(trade['price'])}</code>
+• Price: <code>{format_money(trade['price'])}</code>
 
 <b>Schedule:</b>
 {next_trade_info}
 
 <b>Overall Performance:</b>
-• PnL: <code>${format_money(pnl, 2)}</code> ({format_percentage(pnl_percent)})
+• PnL: <code>{format_money(pnl, 2)}</code> ({format_percentage(pnl_percent)})
 
 <blockquote expandable>
 <b>Portfolio Summary:</b>
-• Total Invested: <code>${format_money(stats['total_spent_usd'])}</code>
+• Total Invested: <code>{format_money(stats['total_spent_usd'])}</code>
 {portfolio_info_details}
-• Average Price: <code>${format_money(stats['mean_price'], 2)}</code>
-• Current Price: <code>${format_money(current_price, 2)}</code>
+• Average Price: <code>{format_money(stats['mean_price'], 2)}</code>
+• Current Price: <code>{format_money(current_price, 2)}</code>
 • Total Trades: <code>{stats['num_trades']}</code>
 </blockquote >
 
 <b>Balance:</b>
-• USDT Remaining: <code>${format_money(usdt_balance, 2)}</code>
-• {unit_plural.capitalize()} Left: <code>{remaining_value}</code> (at ${format_money(amount_per_unit)}/{unit_name})
+• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
+• {unit_plural.capitalize()} Left: <code>{remaining_value}</code> (at {format_money(amount_per_unit)}/{unit_name})
 • Estimated End Date: <code>{end_date.strftime('%Y-%m-%d %H:%M')}</code>
 """
     return message
@@ -228,4 +228,70 @@ def format_stats_message(
 • Days Left: <code>{days_left}</code> (at {format_money(amount_per_original_unit)}/{original_unit_name})
 • Estimated End Date: <code>{end_date.strftime('%Y-%m-%d %H:%M')}</code>
 """
+    return message
+
+
+def format_trade_summary_notification(
+    trades: List[Dict[str, Any]],
+    period_start: datetime,
+    period_end: datetime,
+    stats: Dict[str, Any],
+    current_price: float,
+    usdt_balance: float,
+    next_trade_time: Tuple[int, int]
+) -> str:
+    """Format a summary notification for multiple trades within a period."""
+    num_trades = len(trades)
+    # Calculate duration
+    duration_timedelta = period_end - period_start
+    duration_hours = round(duration_timedelta.total_seconds() / 3600)
+    duration_str = f"last {duration_hours} hours"
+
+    # Use duration string in the title
+    period_str = duration_str
+
+    if num_trades == 0:
+        return f"""<b>📊 Trade Summary ({period_str})</b>
+
+No trades executed in this period.
+
+<b>Balance:</b>
+• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
+        """
+
+    total_usd_spent = sum(t['usd_amount'] for t in trades)
+    total_btc_bought = sum(t['btc_amount'] for t in trades)
+    avg_price_period = total_usd_spent / total_btc_bought if total_btc_bought > 0 else 0
+
+    trade_list_str = ""
+    for trade in trades:
+        trade_time = trade['timestamp'].strftime('%H:%M')
+        trade_list_str += f"  • <code>{trade_time}</code>: {format_money(trade['usd_amount'])} -> {format_btc(trade['btc_amount'], 6)} @ {format_money(trade['price'])}\n"
+
+    # Calculate Overall PnL (same as in stats message)
+    overall_pnl = (current_price - stats["mean_price"]) * stats["total_btc"]
+    overall_pnl_percent = (current_price / stats["mean_price"] - 1) * 100 if stats["mean_price"] > 0 else 0
+
+    hours, minutes = next_trade_time
+    next_trade_info = f"in {hours} hours {minutes} minutes"
+
+    message = f"""
+<b>📊 Trade Summary ({period_str})</b>
+
+Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_usd_spent)}</code> (Avg Price: {format_money(avg_price_period)}).
+
+<b>Trades List:</b>
+<pre>
+{trade_list_str}
+</pre>
+<b>Overall Performance:</b>
+• PnL: <code>{format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})
+• Total Invested: <code>{format_money(stats['total_spent_usd'])}</code>
+• Total BTC: <code>{format_btc(stats['total_btc'])}</code>
+• Average Price: <code>{format_money(stats['mean_price'], 2)}</code>
+
+<b>Schedule & Balance:</b>
+• Next Trade: <code>{next_trade_info}</code>
+• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
+    """
     return message
