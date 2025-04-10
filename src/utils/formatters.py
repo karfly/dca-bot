@@ -238,21 +238,29 @@ def format_trade_summary_notification(
     stats: Dict[str, Any],
     current_price: float,
     usdt_balance: float,
-    next_trade_time: Tuple[int, int]
+    next_trade_time: Tuple[int, int],
+    title: str = "📊 <b>Trade Summary</b>"
 ) -> str:
-    """Format a summary notification for multiple trades within a period."""
+    """Format trade summary notification message."""
+    # Title section
+    message = f"{title}\n\n"
     num_trades = len(trades)
+
     # Calculate duration
     duration_timedelta = period_end - period_start
     duration_hours = round(duration_timedelta.total_seconds() / 3600)
-    duration_str = f"last {duration_hours} hours"
 
-    # Use duration string in the title
-    period_str = duration_str
+    # Format period for title
+    start_str = period_start.strftime("%H:%M %d-%b")
+    end_str = period_end.strftime("%H:%M %d-%b")
+    period_str = f"{start_str} - {end_str}"
+
+    # If period is within the last 24 hours, use "last X hours" format
+    if duration_hours <= 24:
+        period_str = f"last {duration_hours} hours"
 
     if num_trades == 0:
-        return f"""<b>📊 Trade Summary ({period_str})</b>
-
+        return f"""{message}
 No trades executed in this period.
 
 <b>Balance:</b>
@@ -263,27 +271,50 @@ No trades executed in this period.
     total_btc_bought = sum(t['btc_amount'] for t in trades)
     avg_price_period = total_usd_spent / total_btc_bought if total_btc_bought > 0 else 0
 
-    trade_list_str = ""
-    for trade in trades:
-        trade_time = trade['timestamp'].strftime('%H:%M')
-        trade_list_str += f"  • <code>{trade_time}</code>: {format_money(trade['usd_amount'])} -> {format_btc(trade['btc_amount'], 6)} @ {format_money(trade['price'])}\n"
+    # Sort trades by timestamp in reverse order (newest first)
+    sorted_trades = sorted(trades, key=lambda t: t['timestamp'], reverse=True)
 
-    # Calculate Overall PnL (same as in stats message)
+    # Group trades by day
+    trade_list_str = ""
+    current_day = None
+
+    for trade in sorted_trades:
+        trade_day = trade['timestamp'].date()
+        trade_time = trade['timestamp'].strftime('%H:%M')
+
+        # Add day separator if we're on a new day
+        if trade_day != current_day:
+            current_day = trade_day
+            if trade_list_str:  # Don't add separator before the first group
+                trade_list_str += "  ----------------------\n"
+            trade_list_str += f"  📅 {trade_day.strftime('%d %b %Y')}:\n"
+
+        # Add trade details
+        trade_list_str += f"    • <code>{trade_time}</code>: {format_money(trade['usd_amount'])} → {format_btc(trade['btc_amount'], 6)} @ {format_money(trade['price'])}\n"
+
+    # Calculate Overall PnL
     overall_pnl = (current_price - stats["mean_price"]) * stats["total_btc"]
     overall_pnl_percent = (current_price / stats["mean_price"] - 1) * 100 if stats["mean_price"] > 0 else 0
 
+    # Format next trade info
     hours, minutes = next_trade_time
     next_trade_info = f"in {hours} hours {minutes} minutes"
 
-    message = f"""
-<b>📊 Trade Summary ({period_str})</b>
+    # Calculate average statistics for this period
+    period_avg_str = ""
+    if num_trades > 0:
+        period_avg_str = f"\nAverage price: <code>{format_money(avg_price_period)}</code> • Average per trade: <code>{format_money(total_usd_spent/num_trades)}</code>"
 
-Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_usd_spent)}</code> (Avg Price: {format_money(avg_price_period)}).
+    message += f"""
+Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_usd_spent)}</code>.{period_avg_str}
 
-<b>Trades List:</b>
+<b>Trades List</b> (tap to expand):
+<tg-spoiler>
 <pre>
 {trade_list_str}
 </pre>
+</tg-spoiler>
+
 <b>Overall Performance:</b>
 • PnL: <code>{format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})
 • Total Invested: <code>{format_money(stats['total_spent_usd'])}</code>

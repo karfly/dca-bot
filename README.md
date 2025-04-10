@@ -118,7 +118,6 @@ For enhanced security, create a dedicated subaccount for the DCA bot:
 | `DCA_AMOUNT_USD` | USD amount to buy daily | `100.0` |
 | `DCA_PERIOD` | DCA execution period | `1_day`, `1_minute` or `1_hour` |
 | `DCA_TIME_UTC` | Time to execute DCA (UTC) | `18:00` |
-| `MAX_TRANSACTION_LIMIT` | Maximum allowed transaction | `1000.0` |
 | `PORTFOLIO_INITIAL_BTC` | Initial BTC holdings | `0.5` |
 | `PORTFOLIO_INITIAL_AVG_PRICE` | Average price of initial BTC | `40000.0` |
 | `MONGODB_URI` | MongoDB connection string | `mongodb+srv://...` |
@@ -196,7 +195,7 @@ This provides a robust verification of all system components.
 This bot handles financial operations, so security is critical. Here are the security measures implemented:
 
 1. **OKX Subaccount**: Using a dedicated subaccount isolates funds from your main account.
-2. **Transaction Limits**: The `MAX_TRANSACTION_LIMIT` parameter prevents excessive purchases.
+2. **Transaction Validation**: All transaction amounts are validated to prevent excessive purchases.
 3. **Limited API Permissions**: Only enable the "Trade" permission, nothing else.
 4. **IP Restrictions**: Configure OKX API to only accept requests from your server IP.
 5. **Dry Run Mode**: Test the bot without making actual trades.

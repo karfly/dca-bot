@@ -3,18 +3,16 @@ import logging
 import sys
 import signal
 import os
-import dotenv
 import threading
 from datetime import datetime, timedelta
 import pytz
 
-# Load environment variables before other imports
-dotenv.load_dotenv()
+# Removed dotenv imports and loading
 
 from src.config import settings
 from src.exchange import exchange
 from src.bot.telegram import telegram_bot
-from src.scheduler import dca_scheduler, setup_schedule, run_schedule
+from src.scheduler import dca_scheduler, trade_report_scheduler, setup_schedule, run_schedule
 from src.db.mongodb import db
 
 
@@ -51,19 +49,9 @@ def handle_exit(signum, frame) -> None:
 async def shutdown_gracefully() -> None:
     """Gracefully shutdown the application."""
     await dca_scheduler.stop()
+    await trade_report_scheduler.stop()
     await telegram_bot.application.stop()
     logging.info("Application shut down gracefully")
-
-
-async def send_startup_summary():
-    """Send a trade summary for the last 12 hours on startup."""
-    try:
-        end_time = datetime.now(pytz.utc)
-        start_time = end_time - timedelta(hours=12)
-        logging.info(f"Sending startup trade summary for last 12 hours ({start_time} to {end_time})")
-        await telegram_bot.send_trade_summary(start_time, end_time)
-    except Exception as e:
-        logging.error(f"Failed to send startup trade summary: {e}", exc_info=True)
 
 
 async def run_app() -> None:
@@ -96,28 +84,25 @@ async def run_app() -> None:
                 f"(${settings.dca.amount_usd:.2f})"
             )
 
-        # Start scheduler
-        run_immediately = os.environ.get("RUN_IMMEDIATELY", "false").lower() == "true"
-        await dca_scheduler.start(run_immediately=run_immediately)
+        # Prepare schedule settings
+        schedule_settings = {
+            'interval': 1,
+            'unit': 'days' if settings.dca.period == '1_day' else
+                    'hours' if settings.dca.period == '1_hour' else 'minutes'
+        }
+
+        # Setup schedulers
+        run_immediately = settings.run_immediately
+
+        # Setup schedulers with the appropriate settings
+        setup_schedule(schedule_settings)
 
         # Start the scheduler in a separate thread
         schedule_thread = threading.Thread(target=run_schedule, daemon=True)
         schedule_thread.start()
 
-        # Send startup summary (run async in the main thread's event loop)
-        # This assumes run_webhook/run_polling starts or uses an asyncio loop
-        # If using run_polling, it blocks, so we might need to run this before polling starts
-        # If using run_webhook (async), this should work.
-        # Let's assume an async context is available (like when using run_webhook or if run_polling is adapted)
-        try:
-            loop = asyncio.get_event_loop()
-            loop.create_task(send_startup_summary())
-            # If loop isn't running yet, need loop.run_until_complete(send_startup_summary())
-            # but that might conflict with the bot's own loop handling.
-            # A simple create_task is often sufficient if the loop starts soon.
-        except RuntimeError:
-            # Fallback if no event loop is running yet
-            asyncio.run(send_startup_summary())
+        # Send startup summary
+        await trade_report_scheduler.send_startup_summary()
 
         # Start Telegram bot
         await telegram_bot.application.initialize()
@@ -133,6 +118,7 @@ async def run_app() -> None:
     except Exception as e:
         logging.error(f"Error running application: {str(e)}")
         await dca_scheduler.stop()
+        await trade_report_scheduler.stop()
         await telegram_bot.application.stop()
         sys.exit(1)
 

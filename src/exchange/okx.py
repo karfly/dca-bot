@@ -4,7 +4,6 @@ from typing import Dict, Any, Tuple, Optional
 import time
 
 from src.config import settings
-from src.utils.security import validate_transaction_amount
 from src.exchange.base import Exchange
 
 logger = logging.getLogger(__name__)
@@ -56,9 +55,6 @@ class OKXExchange(Exchange):
 
     def buy_bitcoin(self, usd_amount: float) -> Dict[str, Any]:
         """Buy Bitcoin with specified USD amount."""
-        # Validate amount
-        validate_transaction_amount(usd_amount, settings.dca.max_transaction_limit)
-
         # Get current price and calculate BTC amount
         ticker = self.get_ticker()
         current_price = ticker['last']

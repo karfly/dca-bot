@@ -34,13 +34,15 @@ class MongoDB:
 
         self.db = self.client.dca_bot
         self.trades = self.db.trades
+        self.reports = self.db.reports  # Collection to track report metadata
         self.setup_indexes()
 
     def setup_indexes(self) -> None:
         """Set up necessary indexes."""
         try:
             self.trades.create_index("timestamp")
-            logger.info("MongoDB index created successfully")
+            self.reports.create_index("report_type")
+            logger.info("MongoDB indexes created successfully")
         except Exception as e:
             logger.error(f"Error setting up MongoDB indexes: {str(e)}")
             # For tests, we can continue even if indexing fails
@@ -182,6 +184,40 @@ class MongoDB:
         # This method should return the timestamp of the last trade
         # This is a placeholder and should be implemented
         return None
+
+    def mark_last_report_time(self) -> None:
+        """Mark the current time as the last time a transaction report was sent."""
+        now = datetime.now(pytz.utc)
+
+        # Update or insert the last report time
+        self.reports.update_one(
+            {"report_type": "transaction_report"},
+            {"$set": {"timestamp": now}},
+            upsert=True
+        )
+
+        logger.info(f"Updated last report time to {now}")
+
+    def get_last_report_time(self) -> Optional[datetime]:
+        """Get the timestamp of the last transaction report."""
+        report = self.reports.find_one({"report_type": "transaction_report"})
+
+        if report and "timestamp" in report:
+            return report["timestamp"]
+
+        # If no report has been sent yet, return None
+        return None
+
+    def count_transactions_since_last_report(self) -> int:
+        """Count the number of transactions since the last report was sent."""
+        last_report_time = self.get_last_report_time()
+
+        # If no report has been sent yet, count all transactions
+        if not last_report_time:
+            return self.trades.count_documents({})
+
+        # Count transactions since the last report
+        return self.trades.count_documents({"timestamp": {"$gt": last_report_time}})
 
 
 # Singleton instance

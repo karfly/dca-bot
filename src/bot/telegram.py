@@ -196,6 +196,66 @@ class TelegramBot:
             except Exception as send_e:
                 logger.error(f"Failed to send trade summary error notification: {send_e}")
 
+    async def send_all_trade_summary(self) -> None:
+        """Sends a summary of all trades without time period filtering."""
+        logger.info("Generating trade summary for all transactions")
+        try:
+            # Get all trades from the database
+            trades = db.get_all_trades()
+
+            if not trades:
+                logger.info("No trades found in the database.")
+                await self.application.bot.send_message(
+                    chat_id=self.allowed_user_id,
+                    text="📊 <b>Transaction Report</b>\n\nNo trades have been executed yet.",
+                    parse_mode=ParseMode.HTML,
+                    disable_notification=not settings.telegram.notification_sound
+                )
+                return
+
+            # Fetch current data needed for the summary message
+            stats = db.get_trade_stats()
+            current_price = exchange.get_current_price()
+            usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
+            from src.scheduler import dca_scheduler  # Import here to avoid circular dependency
+            next_trade_time = dca_scheduler.get_time_until_next_trade()
+
+            # Get the period for informational purposes
+            period_start = trades[0]["timestamp"] if trades else datetime.now(pytz.utc)
+            period_end = datetime.now(pytz.utc)
+
+            # Format the summary message
+            message = format_trade_summary_notification(
+                trades=trades,
+                period_start=period_start,
+                period_end=period_end,
+                stats=stats,
+                current_price=current_price,
+                usdt_balance=usdt_balance,
+                next_trade_time=next_trade_time,
+                title="📊 <b>Transaction Report</b>"  # Custom title
+            )
+
+            # Send the message
+            await self.application.bot.send_message(
+                chat_id=self.allowed_user_id,
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_notification=not settings.telegram.notification_sound
+            )
+            logger.info(f"Sent summary for all {len(trades)} trades.")
+
+        except Exception as e:
+            logger.error(f"Error generating or sending all trades summary: {e}", exc_info=True)
+            try:
+                await self.application.bot.send_message(
+                    chat_id=self.allowed_user_id,
+                    text="❌ Error generating transaction report.",
+                    disable_notification=True
+                )
+            except Exception as send_e:
+                logger.error(f"Failed to send transaction report error notification: {send_e}")
+
     async def send_trade_notification(self, trade: dict) -> None:
         """Handles trade completion: logs it, updates stats. (Does NOT send notification anymore)."""
         # This function is called after a trade is successfully executed.

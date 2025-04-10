@@ -1,7 +1,7 @@
 from pydantic import Field, BaseModel, ConfigDict
 import os
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 from datetime import time
 from pydantic import field_validator
 
@@ -39,7 +39,6 @@ class DCASettings(BaseModel):
     """DCA trading settings."""
     amount_usd: float
     time_utc: time
-    max_transaction_limit: float
     period: str = "1_day"  # "1_day", "1_minute", or "1_hour"
 
     @field_validator("period")
@@ -61,6 +60,12 @@ class DatabaseSettings(BaseModel):
     uri: str
 
 
+class ReportSettings(BaseModel):
+    """Report schedule settings."""
+    times_utc: List[time] = []  # Times in UTC to send reports
+    lookback_hours: int = 12  # Number of hours to look back for statistics in reports
+
+
 class AppSettings(BaseSettings):
     """Main application settings."""
     okx: OkxSettings
@@ -69,9 +74,11 @@ class AppSettings(BaseSettings):
     dca: DCASettings
     db: DatabaseSettings
     portfolio: PortfolioSettings
+    report: ReportSettings
     dry_run: bool = False
     log_level: str = "INFO"
     run_immediately: bool = False
+    test_mode: bool = False
 
     model_config = ConfigDict(
         env_file = ".env",
@@ -100,8 +107,7 @@ def get_settings() -> AppSettings:
         ),
         dca=DCASettings(
             amount_usd=float(get_env("DCA_AMOUNT_USD")),
-            time_utc=parse_time(get_env("DCA_TIME_UTC")),
-            max_transaction_limit=float(get_env("MAX_TRANSACTION_LIMIT")),
+            time_utc=parse_time(get_env("DCA_DAILY_TIME_UTC", "09:00")),
             period=get_env("DCA_PERIOD", "1_day"),
         ),
         portfolio=PortfolioSettings(
@@ -111,9 +117,14 @@ def get_settings() -> AppSettings:
         db=DatabaseSettings(
             uri=get_env("MONGODB_URI"),
         ),
+        report=ReportSettings(
+            times_utc=parse_times_list(get_env("REPORT_TIMES_UTC", "09:01,21:01")),
+            lookback_hours=int(get_env("REPORT_LOOKBACK_HOURS", "12")),
+        ),
         dry_run=get_env("DRY_RUN", "false").lower() == "true",
         log_level=get_env("LOG_LEVEL", "INFO"),
         run_immediately=get_env("RUN_IMMEDIATELY", "false").lower() == "true",
+        test_mode=get_env("TEST_MODE", "false").lower() == "true",
     )
 
 
@@ -129,6 +140,11 @@ def parse_time(time_str: str) -> time:
     """Parse time string in HH:MM format."""
     hours, minutes = map(int, time_str.split(":"))
     return time(hour=hours, minute=minutes)
+
+
+def parse_times_list(times_str: str) -> List[time]:
+    """Parse a comma-separated list of time strings in HH:MM format."""
+    return [parse_time(t.strip()) for t in times_str.split(",") if t.strip()]
 
 
 # Singleton instance
