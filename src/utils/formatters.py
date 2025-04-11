@@ -75,32 +75,39 @@ def format_trade_notification(
     else:
         portfolio_info_details = f"• Total BTC: <code>{format_btc(stats['total_btc'])}</code>"
 
-    message = f"""
-<b>🎉 New Bitcoin Purchase Completed!</b>
+    # Construct the main message header
+    # Format the amount for the header
+    amount_str = format_money(trade['usd_amount'])
+    header_base = f"🎉 <b>Successful BTC purchase!</b> (for {amount_str})"
 
+    header = header_base
+    if trade.get("dry_run"):
+        header = f"[DRY RUN] {header_base}"
+
+    # Format the collapsible content
+    collapsible_content = f"""
 <b>Trade Details:</b>
-• Amount: <code>{format_money(trade['usd_amount'])}</code>
-• BTC Received: <code>{format_btc(trade['btc_amount'])}</code>
+• Amount: <code>{format_money(trade['usd_amount'])}</code> → <code>{format_btc(trade['btc_amount'], 6)}</code>
 • Price: <code>{format_money(trade['price'])}</code>
-
-<b>Schedule:</b>
-{next_trade_info}
+• Order ID: <code>{trade.get('order_id', 'N/A')}</code>
 
 <b>Overall Performance:</b>
-• PnL: <code>{format_money(pnl, 2)}</code> ({format_percentage(pnl_percent)})
-
-<blockquote expandable>
-<b>Portfolio Summary:</b>
+• PnL: <code>{format_money(pnl, 2)} ({format_percentage(pnl_percent)})</code>
 • Total Invested: <code>{format_money(stats['total_spent_usd'])}</code>
-{portfolio_info_details}
+• Total BTC: <code>{format_btc(stats['total_btc'])}</code>
 • Average Price: <code>{format_money(stats['mean_price'], 2)}</code>
-• Current Price: <code>{format_money(current_price, 2)}</code>
-• Total Trades: <code>{stats['num_trades']}</code>
-</blockquote >
 
-<b>Balance:</b>
+<b>Schedule & Balance:</b>
+• Next Trade: <code>in {hours} hours {minutes} minutes</code>
 • USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
 """
+
+    # Combine header and collapsible block
+    message = f"""{header}
+<blockquote expandable>
+{collapsible_content.strip()} # Use strip() to remove leading/trailing whitespace
+</blockquote>"""
+
     return message
 
 
@@ -228,33 +235,28 @@ def format_trade_summary_notification(
     current_price: float,
     usdt_balance: float,
     next_trade_time: Tuple[int, int],
-    title: str = "📊 <b>Trade Summary</b>"
+    title: str = ""
 ) -> str:
     """Format trade summary notification message."""
-    # Title section
-    message = f"{title}\n\n"
-    num_trades = len(trades)
-
     # Calculate duration
     duration_timedelta = period_end - period_start
     duration_hours = round(duration_timedelta.total_seconds() / 3600)
 
-    # Format period for title
-    start_str = period_start.strftime("%H:%M %d-%b")
-    end_str = period_end.strftime("%H:%M %d-%b")
-    period_str = f"{start_str} - {end_str}"
+    # Construct the title
+    if not title: # If no custom title is provided, create the default one
+        title = f"📊 <b>Trade Summary</b> (last {duration_hours} hours)"
 
-    # If period is within the last 24 hours, use "last X hours" format
-    if duration_hours <= 24:
-        period_str = f"last {duration_hours} hours"
+    # Title section
+    message = f"{title}\n"
+    num_trades = len(trades)
 
     if num_trades == 0:
-        return f"""{message}
-No trades executed in this period.
-
-<b>Balance:</b>
+        # Add a note about the period even if no trades
+        message += f"No trades executed in the last {duration_hours} hours.\n\n"
+        message += f"""<b>Balance:</b>
 • USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
         """
+        return message # Return early
 
     total_usd_spent = sum(t['usd_amount'] for t in trades)
     total_btc_bought = sum(t['btc_amount'] for t in trades)
@@ -297,12 +299,9 @@ No trades executed in this period.
     message += f"""
 Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_usd_spent)}</code>.{period_avg_str}
 
-<b>Trades List</b> (tap to expand):
-<blockquote expandable>
-<pre>
-{trade_list_str}
-</pre>
-</blockquote>
+<b>Schedule & Balance:</b>
+• Next Trade: <code>{next_trade_info}</code>
+• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
 
 <b>Overall Performance:</b>
 • PnL: <code>{format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})
@@ -310,8 +309,11 @@ Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_us
 • Total BTC: <code>{format_btc(stats['total_btc'])}</code>
 • Average Price: <code>{format_money(stats['mean_price'], 2)}</code>
 
-<b>Schedule & Balance:</b>
-• Next Trade: <code>{next_trade_info}</code>
-• USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
+<b>Trades List</b> (tap to expand):
+<blockquote expandable>
+<pre>
+{trade_list_str}
+</pre>
+</blockquote>
     """
     return message
