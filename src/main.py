@@ -72,7 +72,6 @@ async def run_app() -> None:
             logging.info(f"DCA Daily Start Time: {settings.dca.start_time_utc.strftime('%H:%M')} UTC")
         logging.info(f"Dry run mode: {settings.dry_run}")
         logging.info(f"Send Trade Notifications: {settings.send_trade_notifications}")
-        logging.info(f"Run DCA Immediately on Start: {settings.run_dca_immediately}")
 
         # Check OKX API connectivity
         logging.info("Testing OKX API connectivity...")

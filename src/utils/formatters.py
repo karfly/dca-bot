@@ -298,11 +298,11 @@ No trades executed in this period.
 Executed <code>{num_trades}</code> trades totalling <code>{format_money(total_usd_spent)}</code>.{period_avg_str}
 
 <b>Trades List</b> (tap to expand):
-<tg-spoiler>
+<blockquote expandable>
 <pre>
 {trade_list_str}
 </pre>
-</tg-spoiler>
+</blockquote>
 
 <b>Overall Performance:</b>
 • PnL: <code>{format_money(overall_pnl, 2)}</code> ({format_percentage(overall_pnl_percent)})

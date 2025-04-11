@@ -82,7 +82,6 @@ class AppSettings(BaseSettings):
     log_level: str = "INFO"
     test_mode: bool = False
     # Derived flag, set during get_settings logic
-    run_dca_immediately: bool = False
 
     model_config = ConfigDict(
         # BaseSettings will read .env automatically if python-dotenv is installed
@@ -123,12 +122,10 @@ def get_settings() -> AppSettings:
     dca_period_val = os.environ.get("DCA_PERIOD", "1_day")
     dca_start_str = os.environ.get("DCA_START_TIME_UTC")
     parsed_dca_start_time = None
-    run_immediately_flag = False
 
     if dca_start_str:
         if dca_start_str.lower() == "now":
-            run_immediately_flag = True
-            logger.info("DCA_START_TIME_UTC='now' detected.")
+            logger.warning(f"DCA_START_TIME_UTC='now' is no longer a valid setting. Please provide a specific time in HH:MM format.")
         else:
             try:
                 parsed_dca_start_time = dt_time.fromisoformat(dca_start_str)
@@ -178,7 +175,6 @@ def get_settings() -> AppSettings:
             "dry_run": os.environ.get("DRY_RUN", "false").lower() == "true",
             "log_level": os.environ.get("LOG_LEVEL", "INFO"),
             "test_mode": os.environ.get("TEST_MODE", "false").lower() == "true",
-            "run_dca_immediately": run_immediately_flag
         }
 
         app_settings = AppSettings(**settings_data)

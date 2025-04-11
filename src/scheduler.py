@@ -367,7 +367,6 @@ async def setup_and_start_schedulers() -> None:
     logger.info(f"Report Times: {', '.join(t.strftime('%H:%M') for t in settings.report.times_utc) if settings.report.times_utc else 'None'}")
     logger.info(f"Report Lookback: {settings.report.lookback_hours} hours")
     logger.info(f"Send Trade Notifications: {settings.send_trade_notifications}")
-    logger.info(f"Run DCA Immediately: {settings.run_dca_immediately}") # Log the flag
 
     # Start scheduler loops concurrently
     scheduler_start_tasks = [
@@ -375,11 +374,6 @@ async def setup_and_start_schedulers() -> None:
         trade_report_scheduler.start()
     ]
     await asyncio.gather(*scheduler_start_tasks)
-
-    # Optionally trigger immediate DCA if configured
-    if settings.run_dca_immediately:
-        logger.info("Attempting immediate DCA execution based on DCA_START_TIME_UTC='now'")
-        await dca_scheduler.execute_dca()
 
     logger.info("All schedulers initialized and started.")
 
