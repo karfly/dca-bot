@@ -215,14 +215,14 @@ def format_stats_message(
 <b>Schedule:</b>
 {next_trade_info}
 
-<blockquote expandable>
-{initial_portfolio_section}{dca_section}{trading_activity}
-</blockquote >
-
 <b>Balance:</b>
 • USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
 • Days Left: <code>{days_left}</code> (at {format_money(amount_per_original_unit)}/{original_unit_name})
 • Estimated End Date: <code>{end_date.strftime('%Y-%m-%d %H:%M')}</code>
+
+<blockquote expandable>
+{initial_portfolio_section}{dca_section}{trading_activity}
+</blockquote >
 """
     return message
 
