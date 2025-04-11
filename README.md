@@ -121,6 +121,10 @@ For enhanced security, create a dedicated subaccount for the DCA bot:
 | `PORTFOLIO_INITIAL_BTC` | Initial BTC holdings | `0.5` |
 | `PORTFOLIO_INITIAL_AVG_PRICE` | Average price of initial BTC | `40000.0` |
 | `MONGODB_URI` | MongoDB connection string | `mongodb+srv://...` |
+| `DCA_START_TIME_UTC` | Time to start DCA jobs (HH:MM UTC) or 'now' | `18:00` or `now` |
+| `SEND_TRADE_NOTIFICATIONS` | Send notification after each trade? | `true` or `false` |
+| `REPORT_TIMES_UTC` | Comma-separated HH:MM UTC times for reports (optional) | `09:00,21:00` |
+| `REPORT_LOOKBACK_HOURS` | Lookback period for reports (optional) | `12` |
 | `DRY_RUN` | Test mode without real trades | `true` or `false` |
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
 | `RUN_IMMEDIATELY` | Run DCA on startup | `true` or `false` |
@@ -250,3 +254,52 @@ To use another exchange supported by CCXT:
 3. Note that subaccount support and specific trading parameters may vary between exchanges
 
 If you encounter issues with a specific exchange, contributions to improve support are welcome.
+
+### Configuration Examples
+
+Here are some common configuration patterns:
+
+**1. Daily DCA with Immediate Notification (No Periodic Reports)**
+
+*   Buy $10 every day at 09:00 UTC.
+*   Get a Telegram notification immediately after each purchase.
+*   No separate periodic summary reports.
+
+```dotenv
+DCA_AMOUNT_USD=10.0
+DCA_PERIOD=1_day
+DCA_START_TIME_UTC=09:00
+SEND_TRADE_NOTIFICATIONS=true
+REPORT_TIMES_UTC=
+REPORT_LOOKBACK_HOURS=12
+```
+
+**2. Hourly DCA with Periodic Reports (No Immediate Notifications)**
+
+*   Buy $5 every hour, starting immediately on bot startup.
+*   Do *not* receive a notification after each individual purchase.
+*   Receive a summary report every 12 hours (at 08:00 and 20:00 UTC) covering the trades from the previous 12 hours.
+
+```dotenv
+DCA_AMOUNT_USD=5.0
+DCA_PERIOD=1_hour
+DCA_START_TIME_UTC=now
+SEND_TRADE_NOTIFICATIONS=false
+REPORT_TIMES_UTC=08:00,20:00
+REPORT_LOOKBACK_HOURS=12
+```
+
+**3. Minute-by-Minute DCA with Both Immediate Notifications and Reports**
+
+*   Buy $1 every minute, starting immediately.
+*   Receive a notification after *every single* purchase (can be noisy!).
+*   Receive a summary report every 6 hours.
+
+```dotenv
+DCA_AMOUNT_USD=1.0
+DCA_PERIOD=1_minute
+DCA_START_TIME_UTC=now
+SEND_TRADE_NOTIFICATIONS=true
+REPORT_TIMES_UTC=00:00,06:00,12:00,18:00
+REPORT_LOOKBACK_HOURS=6
+```

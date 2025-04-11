@@ -12,7 +12,7 @@ import pytz
 from src.config import settings
 from src.exchange import exchange
 from src.bot.telegram import telegram_bot
-from src.scheduler import dca_scheduler, trade_report_scheduler, setup_schedule, run_schedule
+from src.scheduler import dca_scheduler, trade_report_scheduler, setup_and_start_schedulers
 from src.db.mongodb import db
 
 
@@ -64,10 +64,15 @@ async def run_app() -> None:
 
     try:
         # Log configuration
-        logging.info(f"DCA amount: ${settings.dca.amount_usd}")
-        logging.info(f"DCA period: {settings.dca.period}")
-        logging.info(f"DCA time: {settings.dca.time_utc.strftime('%H:%M')} UTC")
+        logging.info(f"OKX Subaccount: {settings.okx.subaccount_name or 'Not Set'}")
+        logging.info(f"DCA Amount: ${settings.dca.amount_usd:.2f}")
+        logging.info(f"DCA Period: {settings.dca.period}")
+        # Only log start time if period is daily and time is set
+        if settings.dca.period == "1_day" and settings.dca.start_time_utc:
+            logging.info(f"DCA Daily Start Time: {settings.dca.start_time_utc.strftime('%H:%M')} UTC")
         logging.info(f"Dry run mode: {settings.dry_run}")
+        logging.info(f"Send Trade Notifications: {settings.send_trade_notifications}")
+        logging.info(f"Run DCA Immediately on Start: {settings.run_dca_immediately}")
 
         # Check OKX API connectivity
         logging.info("Testing OKX API connectivity...")
@@ -84,22 +89,8 @@ async def run_app() -> None:
                 f"(${settings.dca.amount_usd:.2f})"
             )
 
-        # Prepare schedule settings
-        schedule_settings = {
-            'interval': 1,
-            'unit': 'days' if settings.dca.period == '1_day' else
-                    'hours' if settings.dca.period == '1_hour' else 'minutes'
-        }
-
-        # Setup schedulers
-        run_immediately = settings.run_immediately
-
-        # Setup schedulers with the appropriate settings
-        setup_schedule(schedule_settings)
-
-        # Start the scheduler in a separate thread
-        schedule_thread = threading.Thread(target=run_schedule, daemon=True)
-        schedule_thread.start()
+        # Initialize and start schedulers
+        await setup_and_start_schedulers()
 
         # Send startup summary
         await trade_report_scheduler.send_startup_summary()

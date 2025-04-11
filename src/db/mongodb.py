@@ -221,4 +221,6 @@ class MongoDB:
 
 
 # Singleton instance
-db = MongoDB(settings.db.uri)
+db = MongoDB(settings.mongo_uri)
+
+# Add a check to ensure the connection is valid on startup (optional)

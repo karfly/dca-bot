@@ -39,7 +39,6 @@ def format_trade_notification(
     stats: Dict[str, Any],
     current_price: float,
     usdt_balance: float,
-    remaining_duration: Tuple[int, str, float, str], # (value, unit, amount_per_unit, unit_name)
     next_trade_time: Tuple[int, int]
 ) -> str:
     """
@@ -50,7 +49,6 @@ def format_trade_notification(
         stats: Trading statistics
         current_price: Current BTC price
         usdt_balance: USDT balance
-        remaining_duration: Tuple (value, unit, amount_per_unit, unit_name)
         next_trade_time: Tuple of (hours, minutes) until next trade
 
     Returns:
@@ -63,13 +61,6 @@ def format_trade_notification(
     if stats["mean_price"] > 0:
         pnl = (current_price - stats["mean_price"]) * stats["total_btc"]
         pnl_percent = (current_price / stats["mean_price"] - 1) * 100
-
-    # Unpack remaining duration
-    remaining_value, unit, amount_per_unit, unit_name = remaining_duration
-    unit_plural = unit_name + ("s" if remaining_value != 1 else "")
-
-    # Estimate end date based on the actual unit
-    end_date = datetime.now() + timedelta(**{unit: remaining_value})
 
     # Get time until next trade
     hours, minutes = next_trade_time
@@ -109,8 +100,6 @@ def format_trade_notification(
 
 <b>Balance:</b>
 • USDT Remaining: <code>{format_money(usdt_balance, 2)}</code>
-• {unit_plural.capitalize()} Left: <code>{remaining_value}</code> (at {format_money(amount_per_unit)}/{unit_name})
-• Estimated End Date: <code>{end_date.strftime('%Y-%m-%d %H:%M')}</code>
 """
     return message
 

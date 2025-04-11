@@ -256,25 +256,60 @@ class TelegramBot:
             except Exception as send_e:
                 logger.error(f"Failed to send transaction report error notification: {send_e}")
 
-    async def send_trade_notification(self, trade: dict) -> None:
-        """Handles trade completion: logs it, updates stats. (Does NOT send notification anymore)."""
-        # This function is called after a trade is successfully executed.
-        # We keep it to potentially log trades or update internal stats if needed,
-        # but the direct notification sending is removed.
-        logger.info(f"Trade completed (notification deferred to summary): {trade.get('order_id')}")
+    async def send_trade_notification(
+        self,
+        trade: dict,
+        stats: dict,
+        current_price: float,
+        usdt_balance: float,
+        next_trade_time: tuple[int, int]
+        # Removed remaining_duration for now
+    ) -> None:
+        """Formats and sends a trade notification message via Telegram."""
+        try:
+            # Format the message using the utility function with provided data
+            message = format_trade_notification(
+                trade=trade,
+                stats=stats,
+                current_price=current_price,
+                usdt_balance=usdt_balance,
+                next_trade_time=next_trade_time
+                # Assuming format_trade_notification is updated or doesn't strictly need remaining_duration
+            )
 
-        # Original data fetching (kept in case needed for logging/stats update in future):
-        # stats = db.get_trade_stats()
-        # current_price = exchange.get_current_price()
-        # from src.scheduler import dca_scheduler
-        # usdt_balance = exchange.get_account_balance().get('USDT', 0.0)
-        # remaining_duration = exchange.calculate_remaining_duration()
-        # next_trade_time = dca_scheduler.get_time_until_next_trade()
+            # Send the message
+            await self.application.bot.send_message(
+                chat_id=self.allowed_user_id,
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_notification=not settings.telegram.notification_sound
+            )
+            logger.info(f"Sent trade notification for order: {trade.get('order_id', 'N/A')}")
 
-        # --- MESSAGE SENDING REMOVED ---
-        # message = format_trade_notification(...)
-        # await self.application.bot.send_message(...)
-        # --- --- --- --- --- --- --- ---
+        except Exception as e:
+            logger.error(f"Failed to format or send trade notification: {e}", exc_info=True)
+
+    async def send_insufficient_balance_notification(self, balance: float, required: float) -> None:
+        """Send a notification about insufficient balance."""
+        try:
+            message = f"""
+<b>⚠️ Insufficient Balance</b>
+
+Your USDT balance is too low to execute DCA:
+• Available: <code>${format_money(balance)}</code>
+• Required: <code>${format_money(required)}</code>
+
+Please deposit more funds to continue your DCA strategy.
+"""
+            await self.application.bot.send_message(
+                chat_id=self.allowed_user_id,
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_notification=not settings.telegram.notification_sound
+            )
+            logger.info("Sent insufficient balance notification.")
+        except Exception as e:
+            logger.error(f"Error sending insufficient balance notification: {e}", exc_info=True)
 
     def start(self) -> None:
         """Start the bot."""
